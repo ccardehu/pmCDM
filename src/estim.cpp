@@ -1,0 +1,250 @@
+#include <RcppArmadillo.h>
+#include "utils.h"
+
+// [[Rcpp::depends(RcppArmadillo)]]
+
+using namespace Rcpp;
+using namespace arma;
+
+Rcpp::List newAC_PGD(Rcpp::List& d1AC, arma::mat& Aold, arma::cube& Cold, double ss){
+   arma::vec d1ac = d1AC["grad"];
+   // arma::mat d2ac = d2AC["hess"]; // Rcpp::List& d2AC,
+   arma::umat iA = d1AC["iA"];
+   arma::ucube iC = d1AC["iC"];
+   arma::mat Anew(arma::size(Aold));
+   arma::cube Cnew(arma::size(Cold));
+   const int p = Aold.n_rows;
+   const int q = Cold.n_slices;
+   for(int i = 0; i < p; i ++){
+      arma::uvec idA = iA.row(i).t();
+      arma::vec tA = Aold.row(i).t() + ss*d1ac(idA); // - arma::inv(d2ac(idA,idA))
+      Anew.row(i) = ProxD(tA).t();
+      for(int j = 0; j < q; j++){
+         if(Aold(i,j) != 0){
+            arma::uvec idC = iC.slice(j).row(i).t();
+            arma::vec tC = Cold.slice(j).row(i).t() + ss*d1ac(idC); // arma::inv(d2ac(idC,idC))
+            Cnew.slice(j).row(i) = ProxD(tC).t();
+         } else continue;
+      }
+   }
+   return Rcpp::List::create(Rcpp::Named("A") = Anew,
+                             Rcpp::Named("C") = Cnew);
+}
+
+Rcpp::List newAD_PGD(Rcpp::List& d1AD,arma::mat& Aold, arma::cube& Dold, double ss){
+   arma::vec d1ad = d1AD["grad"];
+   arma::umat iA = d1AD["iA"];
+   arma::ucube iD = d1AD["iD"];
+   arma::mat Anew(arma::size(Aold));
+   arma::cube Dnew(arma::size(Dold));
+   const int p = Aold.n_rows;
+   const int q = Dold.n_slices;
+   for(int i = 0; i < p; i ++){
+      arma::uvec idA = iA.row(i).t();
+      arma::vec tA = Aold.row(i).t() + ss*d1ad(idA); // - arma::inv(d2ac(idA,idA))
+      Anew.row(i) = ProxD(tA).t();
+      for(int j = 0; j < q; j++){
+         if(Aold(i,j) != 0){
+            arma::uvec idD = iD.slice(j).row(i).t();
+            arma::vec tD = Dold.slice(j).row(i).t() + ss*d1ad(idD);
+            Dnew.slice(j).row(i) = tD.t();
+         } else continue;
+      }
+   }
+   return Rcpp::List::create(Rcpp::Named("A") = Anew,
+                             Rcpp::Named("D") = Dnew);
+}
+
+Rcpp::List newAC_MD(Rcpp::List& d1AC,arma::mat& Aold, arma::cube& Cold, double ss){
+   arma::vec d1ac = d1AC["grad"];
+   arma::umat iA = d1AC["iA"];
+   arma::ucube iC = d1AC["iC"];
+   arma::mat Anew(arma::size(Aold));
+   arma::cube Cnew(arma::size(Cold));
+   const int p = Aold.n_rows;
+   const int q = Cold.n_slices;
+   for(int i = 0; i < p; i ++){
+      arma::uvec idA = iA.row(i).t();
+      arma::vec tA = Aold.row(i).t() % arma::exp(ss*d1ac(idA));
+      const double l1A = arma::sum(arma::abs(tA));
+      Anew.row(i) = arma::clamp(tA.t() / l1A, arma::datum::eps, 1.0-arma::datum::eps);
+      for(int j = 0; j < q; j++){
+         if(Aold(i,j) != 0){
+            arma::uvec idC = iC.slice(j).row(i).t();
+            arma::vec tC = Cold.slice(j).row(i).t() % arma::exp(ss*d1ac(idC));
+            const double l1C = arma::sum(arma::abs(tC));
+            Cnew.slice(j).row(i) = tC.t() / l1C;
+         } else continue;
+      }
+   }
+   return Rcpp::List::create(Rcpp::Named("A") = Anew,
+                             Rcpp::Named("C") = Cnew);
+}
+
+Rcpp::List newAD_MD(Rcpp::List& d1AD,arma::mat& Aold, arma::cube& Dold, double ss){
+   arma::vec d1ad = d1AD["grad"];
+   arma::umat iA = d1AD["iA"];
+   arma::ucube iD = d1AD["iD"];
+   arma::mat Anew(arma::size(Aold));
+   arma::cube Dnew(arma::size(Dold));
+   const int p = Aold.n_rows;
+   const int q = Dold.n_slices;
+   for(int i = 0; i < p; i ++){
+      arma::uvec idA = iA.row(i).t();
+      arma::vec tA = Aold.row(i).t() % arma::exp(ss*d1ad(idA));
+      const double l1A = arma::sum(arma::abs(tA));
+      Anew.row(i) = arma::clamp(tA.t() / l1A, arma::datum::eps, 1.0-arma::datum::eps);
+      for(int j = 0; j < q; j++){
+         if(Aold(i,j) != 0){
+            arma::uvec idD = iD.slice(j).row(i).t();
+            arma::vec tD = Dold.slice(j).row(i).t() + ss*d1ad(idD);
+            Dnew.slice(j).row(i) = tD.t();
+         } else continue;
+      }
+   }
+   return Rcpp::List::create(Rcpp::Named("A") = Anew,
+                             Rcpp::Named("D") = Dnew);
+}
+
+arma::vec newM(arma::vec& mu, arma::mat& R, arma::mat& Z, double ss){
+   const int np = mu.size();
+   const int n = Z.n_rows;
+   arma::vec gM(np, arma::fill::zeros);
+   arma::mat iR = arma::inv_sympd(R, arma::inv_opts::allow_approx);
+   for(int i = 0; i < n; i++){
+      gM += iR*(Z.row(i) - mu.t()).t();
+   }
+   mu += ss*gM;
+   return(mu);
+}
+
+arma::mat newL(arma::vec& mu, arma::mat& L, arma::mat& Z, double ss){
+   const int n = Z.n_rows;
+   const int q = L.n_rows;
+   arma::uvec idL = arma::trimatl_ind(arma::size(L));
+   arma::vec vL = L(idL);
+   arma::uvec iL = arma::regspace<arma::uvec>(1,idL.n_elem-1);
+   idL = idL(iL);
+   vL = vL(iL);
+   const int np = vL.size();
+   arma::vec gL(np);
+   arma::mat Ri = L*L.t();
+   arma::mat iR = arma::inv_sympd(Ri, arma::inv_opts::allow_approx);
+
+   for(int i = 0; i < np; i++){
+      arma::uword iLi = idL(i);
+      arma::mat Djk(q,q);
+      Djk(iLi) = 1;
+      arma::mat Gjk = iR*Djk*L.t()*iR;
+      double g1 = -n*arma::trace(L.t()*iR*Djk);
+      double g2 = 0;
+      for(int m = 0; m < n; m++){
+         g2 += arma::as_scalar((Z.row(m)-mu.t())*Gjk*(Z.row(m)-mu.t()).t());
+      }
+      gL(i) = g1 + g2;
+   }
+   vL += ss*gL;
+   L(idL) = vL;
+   L = ProxL(L);
+   return(L);
+}
+
+arma::mat newZ_ULA(arma::mat& Y, arma::mat& PI,arma::mat& Z, arma::mat& A, arma::cube& C,
+                   arma::vec& mu, arma::mat& R,
+                   arma::mat& isd, double& h, arma::vec& knots, const unsigned int degree){
+   arma::mat YmPIo = (Y - PI)/(PI % (1-PI));
+   const int n = YmPIo.n_rows;
+   const int q = R.n_cols;
+   arma::mat gpz = d1PostZ(YmPIo,Z,isd,A,C,mu,R);
+   arma::mat rE = rmvStNorm(n,q);
+   arma::mat Zn = Z + h*gpz + std::sqrt(2*h)*rE;
+   return(Zn);
+}
+
+arma::mat newZ_MALA(arma::mat& Y, arma::mat& PI,arma::mat& Z, arma::mat& A, arma::cube& C,
+                    arma::vec& mu, arma::mat& R, double& ar,
+                    arma::mat& isd, double& h, arma::vec& knots, const unsigned int degree,
+                    const std::string& basis){
+   arma::mat YmPIo = (Y - PI)/(PI % (1-PI));
+   const int n = YmPIo.n_rows;
+   const int q = R.n_cols;
+   const int np = knots.size() + degree ;
+   arma::mat spM(n,q*np), spD(n,q*np);
+   arma::cube spObj(n,q*np,2);
+
+   arma::mat gpz = d1PostZ(YmPIo,Z,isd,A,C,mu,R);
+   arma::mat rE = rmvStNorm(n,q);
+   arma::mat Zn = Z + h*gpz + std::sqrt(2*h)*rE;
+
+   arma::mat Un = Z2U(Zn);
+   if(basis == "is"){
+      spObj = SpU_isp(Un,knots,degree);
+      spM = spObj.slice(0);
+      spD = spObj.slice(1);
+   } else {
+      spObj = SpU_bsp(Un,knots,degree);
+      spM = spObj.slice(0);
+      spD = spObj.slice(1);
+   }
+   arma::mat PIn = prob(A,C,spM);
+   arma::vec pdo = arma::sum(fyz(Y,PI),1) + arma::sum(fz(Z,R),1);
+   arma::vec pdn = arma::sum(fyz(Y,PIn),1) + arma::sum(fz(Zn,R),1);
+   arma::mat YmPIn = (Y - PIn)/(PIn % (1-PIn));
+   arma::mat gpzn = d1PostZ(YmPIn,Zn,spD,A,C,mu,R);
+   arma::vec qo = -1/(4*h) * arma::pow(arma::vecnorm(Z - Zn - h*gpzn,2,1),2);
+   arma::vec qn = -1/(4*h) * arma::pow(arma::vecnorm(Zn - Z - h*gpz,2,1),2);
+   arma::vec rejV = pdn + qo - pdo - qn;
+
+   arma::mat Zout(arma::size(Z));
+   for(int i = 0; i < n; i++){
+      double rej = R::runif(0,1);
+      double com = std::min(1.0, std::exp(rejV(i)));
+      if(rej < com){
+         Zout.row(i) = Zn.row(i);
+         ar++;
+      } else {
+         Zout.row(i) = Z.row(i);
+      }
+   }
+   return Zout;
+}
+
+arma::mat newZ_RWMH(arma::mat& Y, arma::mat& PI,arma::mat& Z, arma::mat& A, arma::cube& C,
+                    arma::vec& mu, arma::mat& R, double& ar,
+                    const double h, arma::vec& knots, const unsigned int degree, const std::string& basis){
+   const int n = Y.n_rows;
+   const int q = R.n_cols;
+   const int np = knots.size() + degree ;
+   arma::mat spM(n,q*np);
+   arma::cube spObj(n,q*np,2);
+
+   // arma::vec mu(q);
+   arma::mat hD = h*arma::eye(arma::size(R));
+   arma::mat rE = rmvNorm(n,mu,hD);
+   arma::mat Zn = Z + rE;
+
+   arma::mat Un = Z2U(Zn);
+   if(basis == "is"){
+      spObj = SpU_isp(Un,knots,degree);
+      spM = spObj.slice(0);
+   } else {
+      spObj = SpU_bsp(Un,knots,degree);
+      spM = spObj.slice(0);
+   }
+   arma::mat PIn = prob(A,C,spM);
+   arma::vec pdo = arma::sum(fyz(Y,PI),1) + arma::sum(fz(Z,R),1);
+   arma::vec pdn = arma::sum(fyz(Y,PIn),1) + arma::sum(fz(Zn,R),1);
+
+   arma::mat Zout(arma::size(Z));
+   for(int i = 0; i < n; i++){
+      double rej = R::runif(0,1);
+      double com = std::min(1.0,std::exp(pdn(i) - pdo(i)));
+      if(rej < com){
+         Zout.row(i) = Zn.row(i);
+         ar++;
+      } else {
+         Zout.row(i) = Z.row(i);
+      }
+   }
+   return Zout;
+}
