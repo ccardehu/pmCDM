@@ -25,4 +25,17 @@ arma::mat newZ_RWMH(arma::mat& Y, arma::mat& PI,arma::mat& Z, arma::mat& A, arma
                     arma::vec& mu, arma::mat& R, double& ar,
                     const double h, arma::vec& knots, const unsigned int degree, const std::string& basis);
 
+arma::mat newG_MD(Rcpp::List& d1G, arma::mat& Gold, double ss);
+
+arma::mat newZ_ULA_aCDM(arma::mat& Y, arma::mat& Z, Rcpp::List aCDMlist,
+                        arma::vec& mu, arma::mat& R, double& h);
+
+arma::mat newZ_RWMH_aCDM(arma::mat& Y, arma::mat& Z, Rcpp::List aCDMlist,
+                         arma::mat& G, arma::mat& Qmatrix, arma::mat& Apat,
+                         arma::vec& mu, arma::mat& R, const double h, double& ar);
+
+arma::mat newZ_MALA_aCDM(arma::mat& Y, arma::mat& Z, Rcpp::List aCDMlist,
+                         arma::mat& G, arma::mat& Qmatrix, arma::mat& Apat,
+                         arma::vec& mu, arma::mat& R, double& h, double& ar);
+
 #endif

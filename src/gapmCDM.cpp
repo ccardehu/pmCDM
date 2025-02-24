@@ -249,7 +249,6 @@ Rcpp::List gapmCDM_cv_rcpp(arma::mat& Ytrain, arma::mat& Ytest, arma::mat& A, ar
   arma::uvec isNA = arma::find_nan(Ytrain);
   const int nmis = isNA.n_elem;
 
-  // arma::vec mu(R.n_rows, arma::fill::zeros);
   arma::mat spM(n,q*np), spD(n,q*np);
   arma::cube spObj(n,q*np,2);
 
@@ -295,3 +294,181 @@ Rcpp::List gapmCDM_cv_rcpp(arma::mat& Ytrain, arma::mat& Ytest, arma::mat& A, ar
                             Rcpp::Named("CV.error") = out);
 }
 
+// [[Rcpp::export]]
+Rcpp::List apmCDM_sim_rcpp(const int n,
+                         arma::mat& G, arma::mat& Qmatrix, arma::mat& Apat,
+                         arma::vec& mu, arma::mat& R){
+  int p = G.n_rows;
+  arma::mat Y(n,p);
+  arma::mat Z = rmvNorm(n,mu,R);
+  arma::mat U = Z2U(Z);
+  Rcpp::List aCDMlist = aCDM(G,Qmatrix,Z,Apat);
+  arma::mat PI = aCDMlist["PI"];
+  for(int j = 0; j < p; j++){
+    for(int i = 0; i < n; i++){
+      Y(i,j) = R::rbinom(1,PI(i,j));
+    }
+  }
+  return Rcpp::List::create(Rcpp::Named("Y") = Y,
+                            Rcpp::Named("Z") = Z,
+                            Rcpp::Named("U") = U,
+                            Rcpp::Named("PI") = PI) ;
+}
+
+// [[Rcpp::export]]
+Rcpp::List apmCDM_fit_rcpp(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apat,
+                           arma::vec& mu, arma::mat& R, arma::mat& Z, Rcpp::List& control){
+
+  const int burnin = control["burn.in"];
+  const int iterlim = control["iter.lim"];
+  const int tunelim = control["tune.lim"];
+  const int window = control["window"];
+  const double h = control["h"];
+  const double epsStop = control["stop.eps"];
+  const double epsTune = control["tune.eps"];
+  const bool verbose = control["verbose"];
+  const bool stopFLAG = control["stop.atconv"];
+  const bool traceFLAG = control["return.trace"];
+  const std::string sampler = Rcpp::as<std::string>(control["sampler"]);
+
+  const int n = Y.n_rows;
+  const int p = Y.n_cols;
+  const int q = R.n_cols;
+
+  arma::mat L = arma::chol(R,"lower");
+  arma::mat PI(arma::size(Y));
+  arma::mat Zout(arma::size(Z));
+  arma::mat Gout(arma::size(G)), Gn(arma::size(G));
+  arma::vec Mout(arma::size(mu)), Mn(arma::size(mu));
+  arma::mat Rout(arma::size(R));
+
+  arma::uvec Rld = arma::trimatl_ind(arma::size(R),-1);
+
+  arma::vec c1(p, arma::fill::value(1.0));
+  arma::mat Qmatrix1 = arma::join_rows(c1,Qmatrix);
+  arma::uvec iG = arma::find(Qmatrix1 != 0);
+
+  const int tp = iG.size() + mu.size() + Rld.size();
+  arma::mat theta(window,tp);
+  arma::mat patrace(iterlim/10,tp);
+  arma::mat lltrace(iterlim/10,2);
+  arma::vec artrace(iterlim/10);
+  int iter = 1;
+  double ar = 0;
+
+  for(int ii = 1; ii <= iterlim + tunelim; ii++){
+    if (ii % 2 == 0) Rcpp::checkUserInterrupt();
+    arma::mat U = Z2U(Z);
+    double ssG;
+    double ssZ;
+    if(ii <= tunelim){
+      ssG = 0.0 + epsTune ;
+      if(verbose & (ii % 10 == 0)) Rcpp::Rcout << "\r Iteration: " << std::setw(5) << ii << " (tuning phase)";
+      ar = 0 ;
+      ssZ = 0.0 + 1.0*h ;
+    } else {
+      ssG = std::pow(iter,-.833) ;
+      if(sampler == "ULA"){
+        ssZ = 0.0 + 1.0 * h * std::pow(iter,-.333) ; // * std::pow(q,-.333)
+      } else if(sampler == "MALA"){
+        ssZ = 0.0 + 1.0 * h * std::pow(iter,-.333) ; // * std::pow(q,-.333)
+      } else if(sampler == "RWMH"){
+        ssZ = 1.0 * h * std::pow(q,-1) ;
+      }
+    }
+    Rcpp::List aCDMlist = aCDM(G, Qmatrix, Z, Apat);
+    PI = Rcpp::as<arma::mat>(aCDMlist["PI"]);
+    Rcpp::List dG = d1G(Y, aCDMlist);
+    arma::mat Gn = newG_MD(dG,G,ssG/n);
+    arma::vec Mn = newM(mu,R,Z,ssG/n);
+    arma::mat Ln = newL(mu,L,Z,ssG/n);
+    arma::mat Zn(arma::size(Z));
+    if(sampler == "ULA"){
+      Zn = newZ_ULA_aCDM(Y,Z,aCDMlist,mu,R,ssZ);
+    } else if(sampler == "MALA"){
+      Zn = newZ_MALA_aCDM(Y,Z,aCDMlist,G,Qmatrix,Apat,mu,R,ssZ,ar);
+    } else if(sampler == "RWMH"){
+      Zn = newZ_RWMH_aCDM(Y,Z,aCDMlist,G,Qmatrix,Apat,mu,R,h,ar);
+    }
+    G = Gn;
+    mu = Mn;
+    L = Ln;
+    R = Ln*Ln.t();
+    Z = Zn;
+    if(iter >= burnin){
+      Gout += G;
+      Mout += mu;
+      Rout += R;
+      Zout += Z;
+      for(int t1 = window - 1; t1 > 0; t1--){
+        theta.row(t1) = theta.row(t1 - 1);
+      }
+      arma::vec Gpar = G(iG);
+      arma::rowvec gi = Gpar.t();
+      arma::rowvec mi = mu.t();
+      arma::rowvec ri = R(Rld).t();
+      arma::rowvec input = arma::join_rows(gi,mi,ri);
+      theta.row(0) = input;
+      arma::mat dtheta = arma::diff(theta,1,0);
+      double maxvalue = arma::max(arma::abs(arma::vectorise(dtheta)));
+      if(iter % 10 == 0){
+        patrace.row(iter/10-1) = input;
+        double fzll = arma::accu(fz(Z,R));
+        lltrace(iter/10-1,0) = fzll;
+        double fyzll = arma::accu(fyz(Y,PI));
+        lltrace(iter/10-1,1) = fyzll;
+        double cdll = fyzll + fzll;
+        artrace(iter/10-1) = ar/(n*iter);
+        if(verbose){
+          if(sampler == "ULA"){
+            Rcpp::Rcout << "\r Iteration: " << std::setw(5) << iter << " (estimation phase, CD-llk: " << std::to_string(cdll) <<
+              ", max (abs) change: " << std::to_string(maxvalue) << ")";
+          } else {
+            Rcpp::Rcout << "\r Iteration: " << std::setw(5) << iter << " (estimation phase, CD-llk: " << std::to_string(cdll) <<
+              ", max (abs) change: " << std::to_string(maxvalue) << ", AR: " << std::to_string(ar/(n*iter)) << ")";
+          }
+        }
+        if(stopFLAG & (maxvalue < epsStop)) {
+          iter++;
+          break;
+        }
+      }
+    } else {
+      if(verbose & (iter % 10 == 0)) Rcpp::Rcout << "\r Iteration: " << std::setw(5) << iter << " (burn-in phase)";
+    }
+    if(ii > tunelim) iter++;
+  }
+  Gout /= (iter - burnin);
+  Mout /= (iter - burnin);
+  Rout /= (iter - burnin);
+  Zout /= (iter - burnin);
+
+  const int nsim = control["nsim"];
+  double llk(0), BIC(0), AIC(0);
+  if(nsim != 0){
+    llk = fy_aCDM(Y,Gout,Qmatrix,Apat,Mout,Rout,control);
+    BIC = -2*llk + std::log(n)*tp;
+    AIC = -2*llk + 2*tp;
+  }
+
+  if(traceFLAG){
+    return Rcpp::List::create(Rcpp::Named("G") = Gout,
+                              Rcpp::Named("mu") = Mout,
+                              Rcpp::Named("R") = Rout,
+                              Rcpp::Named("Z") = Zout,
+                              Rcpp::Named("llk") = llk,
+                              Rcpp::Named("BIC") = BIC,
+                              Rcpp::Named("AIC") = AIC,
+                              Rcpp::Named("cdllk.trace") = lltrace,
+                              Rcpp::Named("ar.trace") = artrace,
+                              Rcpp::Named("theta.trace") = patrace);
+  } else {
+    return Rcpp::List::create(Rcpp::Named("G") = Gout,
+                              Rcpp::Named("mu") = Mout,
+                              Rcpp::Named("R") = Rout,
+                              Rcpp::Named("Z") = Zout,
+                              Rcpp::Named("llk") = llk,
+                              Rcpp::Named("BIC") = BIC,
+                              Rcpp::Named("AIC") = AIC);
+  }
+}

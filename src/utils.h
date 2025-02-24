@@ -21,9 +21,15 @@ double dmvNorm(arma::vec& y, arma::vec& mu, arma::mat& R, const bool log = true)
 
 arma::mat dmvStNorm(arma::mat& Z);
 
+double UiAk(arma::rowvec& Ui, arma::rowvec& Ak);
+
+arma::rowvec dUiAk(arma::rowvec& Ui, arma::rowvec& Ak);
+
 Rcpp::List genpar(const int p, const int q,
                   const double probSparse,
                   arma::vec& knots, const int degree, const std::string& basis);
+
+arma::mat genpar_aCDM(arma::mat& Qmatrix, const double maxG0);
 
 Rcpp::List SpU(arma::mat& U, arma::vec& knots, const unsigned int deg, const std::string& basis);
 
@@ -55,5 +61,14 @@ arma::cube d1PIdZ(arma::mat& A, arma::cube& C, arma::mat& isd, arma::mat& Z);
 
 arma::mat d1PostZ(arma::mat& YmPI, arma::mat& Z, arma::mat& isd,
                  arma::mat& A, arma::cube& C, arma::vec& mu, arma::mat& R);
+
+Rcpp::List aCDM(arma::mat& G, arma::mat& Qmatrix, arma::mat& Z, arma::mat& Apat);
+
+double fy_aCDM(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apat,
+               arma::vec& mu, arma::mat& R, Rcpp::List& control);
+
+Rcpp::List d1G(arma::mat& Y, Rcpp::List aCDMlist);
+
+arma::mat d1PostZ_aCDM(arma::mat& Y, arma::mat& Z, Rcpp::List aCDMlist, arma::vec& mu, arma::mat& R);
 
 #endif

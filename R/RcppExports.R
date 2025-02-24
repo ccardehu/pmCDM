@@ -13,12 +13,24 @@ gapmCDM_cv_rcpp <- function(Ytrain, Ytest, A, C, mu, R, Z, control) {
     .Call(`_pmCDM_gapmCDM_cv_rcpp`, Ytrain, Ytest, A, C, mu, R, Z, control)
 }
 
+apmCDM_sim_rcpp <- function(n, G, Qmatrix, Apat, mu, R) {
+    .Call(`_pmCDM_apmCDM_sim_rcpp`, n, G, Qmatrix, Apat, mu, R)
+}
+
+apmCDM_fit_rcpp <- function(Y, G, Qmatrix, Apat, mu, R, Z, control) {
+    .Call(`_pmCDM_apmCDM_fit_rcpp`, Y, G, Qmatrix, Apat, mu, R, Z, control)
+}
+
 D2C <- function(D) {
     .Call(`_pmCDM_D2C`, D)
 }
 
 genpar <- function(p, q, probSparse, knots, degree, basis) {
     .Call(`_pmCDM_genpar`, p, q, probSparse, knots, degree, basis)
+}
+
+genpar_aCDM <- function(Qmatrix, maxG0) {
+    .Call(`_pmCDM_genpar_aCDM`, Qmatrix, maxG0)
 }
 
 fy <- function(Y, A, C, mu, R, control) {

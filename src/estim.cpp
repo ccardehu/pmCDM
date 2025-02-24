@@ -248,3 +248,98 @@ arma::mat newZ_RWMH(arma::mat& Y, arma::mat& PI,arma::mat& Z, arma::mat& A, arma
    }
    return Zout;
 }
+
+arma::mat newG_MD(Rcpp::List& d1G, arma::mat& Gold, double ss){
+   arma::vec d1g = d1G["grad"];
+   arma::umat iG = d1G["iG"];
+   arma::mat Gnew(arma::size(Gold));
+   const int p = Gold.n_rows;
+   for(int i = 0; i < p; i++){
+      arma::uvec ig = arma::find(Gold.row(i) != 0);
+      arma::uvec idG = iG.row(i).t();
+      idG = idG(ig);
+      arma::vec Goi = Gold.row(i).t();
+      Goi = Goi(ig);
+      arma::vec tG = Goi % arma::exp(ss*d1g(idG));
+      const double l1G = arma::sum(arma::abs(tG));
+      arma::vec Gni = arma::clamp(tG / l1G, arma::datum::eps, 1.0-arma::datum::eps);
+      arma::vec tGi(Gnew.n_cols);
+      tGi(ig) = Gni;
+      Gnew.row(i) = tGi.t();
+   }
+   return(Gnew);
+}
+
+arma::mat newZ_ULA_aCDM(arma::mat& Y, arma::mat& Z, Rcpp::List aCDMlist,
+                        arma::vec& mu, arma::mat& R, double& h){
+   const int n = Y.n_rows;
+   const int q = mu.n_elem;
+   arma::mat gpz = d1PostZ_aCDM(Y, Z, aCDMlist, mu,R);
+   arma::mat rE = rmvStNorm(n,q);
+   arma::mat Zn = Z + h*gpz + std::sqrt(2*h)*rE;
+   return(Zn);
+}
+
+arma::mat newZ_RWMH_aCDM(arma::mat& Y, arma::mat& Z, Rcpp::List aCDMlist,
+                         arma::mat& G, arma::mat& Qmatrix, arma::mat& Apat,
+                         arma::vec& mu, arma::mat& R, const double h, double& ar){
+   const int n = Y.n_rows;
+   arma::mat PI = Rcpp::as<arma::mat>(aCDMlist["PI"]);
+
+   arma::mat hD = h*arma::eye(arma::size(R));
+   arma::mat rE = rmvNorm(n,mu,hD);
+   arma::mat Zn = Z + rE;
+
+   Rcpp::List aCDMlistNew = aCDM(G,Qmatrix,Zn,Apat);
+   arma::mat PIn = Rcpp::as<arma::mat>(aCDMlistNew["PI"]);
+   arma::vec pdo = arma::sum(fyz(Y,PI),1) + arma::sum(fz(Z,R),1);
+   arma::vec pdn = arma::sum(fyz(Y,PIn),1) + arma::sum(fz(Zn,R),1);
+
+   arma::mat Zout(arma::size(Z));
+   for(int i = 0; i < n; i++){
+      double rej = R::runif(0,1);
+      double com = std::min(1.0,std::exp(pdn(i) - pdo(i)));
+      if(rej < com){
+         Zout.row(i) = Zn.row(i);
+         ar++;
+      } else {
+         Zout.row(i) = Z.row(i);
+      }
+   }
+   return Zout;
+}
+
+arma::mat newZ_MALA_aCDM(arma::mat& Y, arma::mat& Z, Rcpp::List aCDMlist,
+                         arma::mat& G, arma::mat& Qmatrix, arma::mat& Apat,
+                         arma::vec& mu, arma::mat& R, double& h, double& ar){
+   const int n = Y.n_rows;
+   const int q = mu.n_elem;
+   arma::mat PI = Rcpp::as<arma::mat>(aCDMlist["PI"]);
+
+   arma::mat gpz = d1PostZ_aCDM(Y, Z, aCDMlist, mu,R);
+   arma::mat rE = rmvStNorm(n,q);
+   arma::mat Zn = Z + h*gpz + std::sqrt(2*h)*rE;
+
+   Rcpp::List aCDMlistNew = aCDM(G,Qmatrix,Zn,Apat);
+   arma::mat PIn = Rcpp::as<arma::mat>(aCDMlistNew["PI"]);
+   arma::vec pdo = arma::sum(fyz(Y,PI),1) + arma::sum(fz(Z,R),1);
+   arma::vec pdn = arma::sum(fyz(Y,PIn),1) + arma::sum(fz(Zn,R),1);
+
+   arma::mat gpzn = d1PostZ_aCDM(Y,Zn,aCDMlistNew,mu,R);
+   arma::vec qo = -1/(4*h) * arma::pow(arma::vecnorm(Z - Zn - h*gpzn,2,1),2);
+   arma::vec qn = -1/(4*h) * arma::pow(arma::vecnorm(Zn - Z - h*gpz,2,1),2);
+   arma::vec rejV = pdn + qo - pdo - qn;
+
+   arma::mat Zout(arma::size(Z));
+   for(int i = 0; i < n; i++){
+      double rej = R::runif(0,1);
+      double com = std::min(1.0, std::exp(rejV(i)));
+      if(rej < com){
+         Zout.row(i) = Zn.row(i);
+         ar++;
+      } else {
+         Zout.row(i) = Z.row(i);
+      }
+   }
+   return Zout;
+}
