@@ -8,7 +8,6 @@ using namespace arma;
 
 Rcpp::List newAC_PGD(Rcpp::List& d1AC, arma::mat& Aold, arma::cube& Cold, double ss){
    arma::vec d1ac = d1AC["grad"];
-   // arma::mat d2ac = d2AC["hess"]; // Rcpp::List& d2AC,
    arma::umat iA = d1AC["iA"];
    arma::ucube iC = d1AC["iC"];
    arma::mat Anew(arma::size(Aold));
@@ -17,12 +16,12 @@ Rcpp::List newAC_PGD(Rcpp::List& d1AC, arma::mat& Aold, arma::cube& Cold, double
    const int q = Cold.n_slices;
    for(int i = 0; i < p; i ++){
       arma::uvec idA = iA.row(i).t();
-      arma::vec tA = Aold.row(i).t() + ss*d1ac(idA); // - arma::inv(d2ac(idA,idA))
+      arma::vec tA = Aold.row(i).t() + ss*d1ac(idA);
       Anew.row(i) = ProxD(tA).t();
       for(int j = 0; j < q; j++){
          if(Aold(i,j) != 0){
             arma::uvec idC = iC.slice(j).row(i).t();
-            arma::vec tC = Cold.slice(j).row(i).t() + ss*d1ac(idC); // arma::inv(d2ac(idC,idC))
+            arma::vec tC = Cold.slice(j).row(i).t() + ss*d1ac(idC);
             Cnew.slice(j).row(i) = ProxD(tC).t();
          } else continue;
       }
@@ -41,7 +40,7 @@ Rcpp::List newAD_PGD(Rcpp::List& d1AD,arma::mat& Aold, arma::cube& Dold, double 
    const int q = Dold.n_slices;
    for(int i = 0; i < p; i ++){
       arma::uvec idA = iA.row(i).t();
-      arma::vec tA = Aold.row(i).t() + ss*d1ad(idA); // - arma::inv(d2ac(idA,idA))
+      arma::vec tA = Aold.row(i).t() + ss*d1ad(idA);
       Anew.row(i) = ProxD(tA).t();
       for(int j = 0; j < q; j++){
          if(Aold(i,j) != 0){

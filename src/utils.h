@@ -31,7 +31,7 @@ Rcpp::List genpar(const int p, const int q,
 
 arma::mat genpar_aCDM(arma::mat& Qmatrix, const double maxG0);
 
-Rcpp::List SpU(arma::mat& U, arma::vec& knots, const unsigned int deg, const std::string& basis);
+// Rcpp::List SpU(arma::mat& U, arma::vec& knots, const unsigned int deg, const std::string& basis);
 
 arma::cube SpU_isp(arma::mat& U, arma::vec& knots, const unsigned int deg);
 

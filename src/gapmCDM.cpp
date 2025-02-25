@@ -472,3 +472,53 @@ Rcpp::List apmCDM_fit_rcpp(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma:
                               Rcpp::Named("AIC") = AIC);
   }
 }
+
+// [[Rcpp::export]]
+Rcpp::List apmCDM_cv_rcpp(arma::mat& Ytrain, arma::mat& Ytest, arma::mat& G,
+                          arma::mat& Qmatrix, arma::mat& Apat,
+                          arma::vec& mu, arma::mat& R, arma::mat& Z, Rcpp::List& control){
+
+  const int nsim = control["nsim"];
+  const double h = control["h"];
+  const bool verbose = control["verbose"];
+  const std::string sampler = Rcpp::as<std::string>(control["sampler"]);
+
+  const int n = Ytrain.n_rows;
+  const int p = Ytrain.n_cols;
+
+  arma::mat piH(n,p);
+  arma::uvec isNA = arma::find_nan(Ytrain);
+  const int nmis = isNA.n_elem;
+
+  for(int ii = 1; ii <= nsim; ii++){
+    if (ii % 2 == 0) Rcpp::checkUserInterrupt();
+    Rcpp::List aCDMlist = aCDM(G, Qmatrix, Z, Apat);
+    arma::mat PI = Rcpp::as<arma::mat>(aCDMlist["PI"]);
+    arma::mat Zn(arma::size(Z));
+    double ar = 0;
+    double ssZ = h * std::pow(ii,-.33) ;
+    if(sampler == "ULA"){
+      Zn = newZ_ULA_aCDM(Ytrain,Z,aCDMlist,mu,R,ssZ);
+    } else if(sampler == "MALA"){
+      Zn = newZ_MALA_aCDM(Ytrain,Z,aCDMlist,G,Qmatrix,Apat,mu,R,ssZ,ar);
+    } else if(sampler == "RWMH"){
+      Zn = newZ_RWMH_aCDM(Ytrain,Z,aCDMlist,G,Qmatrix,Apat,mu,R,h,ar);
+    }
+    piH += PI;
+    Z = Zn;
+    if(verbose & (ii % 10 == 0)) Rcpp::Rcout << "\r CV iteration: " << ii ;
+  }
+  piH /= nsim;
+  double out = 0;
+  for(int ii = 0; ii < nmis; ii++){
+    arma::uword id = isNA(ii);
+    out += Ytest(id)*std::max(arma::datum::log_min, std::log(piH(id))) + (1-Ytest(id))*std::max(arma::datum::log_min, std::log(1-piH(id)));
+  }
+  out /= -nmis;
+  if(verbose) Rcpp::Rcout << "\r CV iteration: " << nsim << " ... [CV-error: " << std::to_string(out) << "]\n" ;
+  arma::vec outYhat = piH(isNA);
+  arma::vec outYtst = Ytest(isNA);
+  return Rcpp::List::create(Rcpp::Named("Yhat") = Rcpp::wrap(outYhat),
+                            Rcpp::Named("Yobs") = Rcpp::wrap(outYtst),
+                            Rcpp::Named("CV.error") = out);
+}

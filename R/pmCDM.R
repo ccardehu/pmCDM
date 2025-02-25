@@ -386,11 +386,11 @@ apmCDM <- function(data, q, Qmatrix, control = list(), start.par = NULL, ...){
   colnames(out$G) <- c("(Intercept)",paste0("Z",1:q))
   if(control$return.trace){
     colnames(out$cdllk.trace) <- c("fyz","fz")
-  #   Gnames <- paste0("G",apply(expand.grid(paste0("j",1:p),paste0("k",1:q)),1,paste,collapse = "."))
-  #   Cnames <- paste0("C",apply(expand.grid(apply(expand.grid(paste0("j",1:p),paste0("r",1:ncol(out$C))),1,paste,collapse = "."), paste0("k",1:q)),1,paste,collapse = "."))
-  #   Mnames <- paste0("mu",1:q)
-  #   Rnames <- paste0("R",apply(which(lower.tri(diag(q)) == T,arr.ind = T),1,paste0,collapse = ""))
-  #   colnames(out$theta.trace) <- c(Anames,Cnames,Mnames,Rnames)
+    Gnames <- paste0("G",apply(expand.grid(paste0("j",1:p),paste0("k",1:q)),1,paste,collapse = "."))
+    Gnames <- Gnames[which(cbind(1,Qmatrix) != 0)]
+    Mnames <- paste0("mu",1:q)
+    Rnames <- paste0("R",apply(which(lower.tri(diag(q)) == T,arr.ind = T),1,paste0,collapse = ""))
+    colnames(out$theta.trace) <- c(Gnames,Mnames,Rnames)
   }
   return(out)
 }

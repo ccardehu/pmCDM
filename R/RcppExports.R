@@ -21,6 +21,10 @@ apmCDM_fit_rcpp <- function(Y, G, Qmatrix, Apat, mu, R, Z, control) {
     .Call(`_pmCDM_apmCDM_fit_rcpp`, Y, G, Qmatrix, Apat, mu, R, Z, control)
 }
 
+apmCDM_cv_rcpp <- function(Ytrain, Ytest, G, Qmatrix, Apat, mu, R, Z, control) {
+    .Call(`_pmCDM_apmCDM_cv_rcpp`, Ytrain, Ytest, G, Qmatrix, Apat, mu, R, Z, control)
+}
+
 D2C <- function(D) {
     .Call(`_pmCDM_D2C`, D)
 }

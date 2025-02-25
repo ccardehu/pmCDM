@@ -233,29 +233,29 @@ arma::mat genpar_aCDM(arma::mat& Qmatrix, const double maxG0){
   return(G);
 }
 
-Rcpp::List SpU(arma::mat& U, arma::vec& knots, const unsigned int deg, const std::string& basis){
-  const arma::vec bouK = {0.0,1.0};
-  const int n = U.n_rows;
-  const int q = U.n_cols;
-  const int np = knots.size() + deg ;
-  arma::mat out1(n,q*np);
-  arma::mat out2(n,q*np);
-  if(basis == "is"){
-    for(int j = 0; j < q; j++){
-      splines2::ISpline iSp(U.col(j),knots,deg,bouK);
-      out1.cols(j*np,(j+1)*np-1) = iSp.basis(false);
-      out2.cols(j*np,(j+1)*np-1) = iSp.derivative(1,false);
-    }
-  } else {
-    for(int j = 0; j < q; j++){
-      splines2::BSpline bSp(U.col(j),knots,deg,bouK);
-      out1.cols(j*np,(j+1)*np-1) = bSp.basis(false);
-      out2.cols(j*np,(j+1)*np-1) = bSp.derivative(1,false);
-    }
-  }
-  return Rcpp::List::create(Rcpp::Named("basis") = out1,
-                            Rcpp::Named("deriv") = out2);
-}
+// Rcpp::List SpU(arma::mat& U, arma::vec& knots, const unsigned int deg, const std::string& basis){
+//   const arma::vec bouK = {0.0,1.0};
+//   const int n = U.n_rows;
+//   const int q = U.n_cols;
+//   const int np = knots.size() + deg ;
+//   arma::mat out1(n,q*np);
+//   arma::mat out2(n,q*np);
+//   if(basis == "is"){
+//     for(int j = 0; j < q; j++){
+//       splines2::ISpline iSp(U.col(j),knots,deg,bouK);
+//       out1.cols(j*np,(j+1)*np-1) = iSp.basis(false);
+//       out2.cols(j*np,(j+1)*np-1) = iSp.derivative(1,false);
+//     }
+//   } else {
+//     for(int j = 0; j < q; j++){
+//       splines2::BSpline bSp(U.col(j),knots,deg,bouK);
+//       out1.cols(j*np,(j+1)*np-1) = bSp.basis(false);
+//       out2.cols(j*np,(j+1)*np-1) = bSp.derivative(1,false);
+//     }
+//   }
+//   return Rcpp::List::create(Rcpp::Named("basis") = out1,
+//                             Rcpp::Named("deriv") = out2);
+// }
 
 arma::cube SpU_isp(arma::mat& U, arma::vec& knots, const unsigned int deg){
   const arma::vec bouK = {0.0,1.0};

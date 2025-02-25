@@ -99,6 +99,25 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// apmCDM_cv_rcpp
+Rcpp::List apmCDM_cv_rcpp(arma::mat& Ytrain, arma::mat& Ytest, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apat, arma::vec& mu, arma::mat& R, arma::mat& Z, Rcpp::List& control);
+RcppExport SEXP _pmCDM_apmCDM_cv_rcpp(SEXP YtrainSEXP, SEXP YtestSEXP, SEXP GSEXP, SEXP QmatrixSEXP, SEXP ApatSEXP, SEXP muSEXP, SEXP RSEXP, SEXP ZSEXP, SEXP controlSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::mat& >::type Ytrain(YtrainSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type Ytest(YtestSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type G(GSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type Qmatrix(QmatrixSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type Apat(ApatSEXP);
+    Rcpp::traits::input_parameter< arma::vec& >::type mu(muSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type R(RSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type Z(ZSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List& >::type control(controlSEXP);
+    rcpp_result_gen = Rcpp::wrap(apmCDM_cv_rcpp(Ytrain, Ytest, G, Qmatrix, Apat, mu, R, Z, control));
+    return rcpp_result_gen;
+END_RCPP
+}
 // D2C
 arma::cube D2C(arma::cube& D);
 RcppExport SEXP _pmCDM_D2C(SEXP DSEXP) {
@@ -161,6 +180,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pmCDM_gapmCDM_cv_rcpp", (DL_FUNC) &_pmCDM_gapmCDM_cv_rcpp, 8},
     {"_pmCDM_apmCDM_sim_rcpp", (DL_FUNC) &_pmCDM_apmCDM_sim_rcpp, 6},
     {"_pmCDM_apmCDM_fit_rcpp", (DL_FUNC) &_pmCDM_apmCDM_fit_rcpp, 8},
+    {"_pmCDM_apmCDM_cv_rcpp", (DL_FUNC) &_pmCDM_apmCDM_cv_rcpp, 9},
     {"_pmCDM_D2C", (DL_FUNC) &_pmCDM_D2C, 1},
     {"_pmCDM_genpar", (DL_FUNC) &_pmCDM_genpar, 6},
     {"_pmCDM_genpar_aCDM", (DL_FUNC) &_pmCDM_genpar_aCDM, 2},
