@@ -24,6 +24,7 @@
 gapmCDM <- function(data,q,control = list(), start.par = NULL, ...){
 
   control = pr_control_gaCDM(control,...)
+  if(control$verbose) cat(" Model: Generalized Additive PM-CDM \n")
   control$sampler = match.arg(control$sampler, c("ULA","MALA","RWMH"))
   control$basis = match.arg(control$basis, c("is","bs","pwl"))
   if(control$basis == "pwl" & is.null(control$degree)) control$degree = 1
@@ -358,6 +359,7 @@ gapmCDM_mllkCV <- function(Ytrain, Ytest, q, control = list(), ...){
 apmCDM <- function(data, q, Qmatrix, control = list(), start.par = NULL, ...){
 
   control = pr_control_aCDM(control,...)
+  if(control$verbose) cat(" Model: Additive PM-CDM \n")
   control$sampler = match.arg(control$sampler, c("ULA","MALA","RWMH"))
   p = ncol(data)
   Apat = as.matrix(expand.grid(lapply(1:q,function(x) c(0,1))))
@@ -386,7 +388,7 @@ apmCDM <- function(data, q, Qmatrix, control = list(), start.par = NULL, ...){
   colnames(out$G) <- c("(Intercept)",paste0("Z",1:q))
   if(control$return.trace){
     colnames(out$cdllk.trace) <- c("fyz","fz")
-    Gnames <- paste0("G",apply(expand.grid(paste0("j",1:p),paste0("k",1:q)),1,paste,collapse = "."))
+    Gnames <- paste0("G",apply(expand.grid(paste0("j",1:p),paste0("k",0:q)),1,paste,collapse = "."))
     Gnames <- Gnames[which(cbind(1,Qmatrix) != 0)]
     Mnames <- paste0("mu",1:q)
     Rnames <- paste0("R",apply(which(lower.tri(diag(q)) == T,arr.ind = T),1,paste0,collapse = ""))
@@ -439,4 +441,64 @@ apmCDM_sim <- function(n, p, q, Qmatrix, control = list(),
   colnames(out$R) <- rownames(out$R) <- colnames(out$Z) <- names(out$mu) <- paste0("Z",1:q)
   colnames(out$U) <- paste0("U",1:q)
   return(out)
+}
+
+#' Compare GaPM-CDM vs. aPM-CDM via negative cross-entropy error.
+#'
+#' @param Ytrain Matrix with observed binary entries to train the model. Missing entries (\code{Ytest}) coded as \code{NA}.
+#' @param Ytest Matrix with observed binary entries to test the model. All entries are \code{NA} but the missing in \code{Ytrain}.
+#' @param Qmatrix Q-matrix for aPM-CDM.
+#' @param q Number of latent variables.
+#' @param controlA List of control parameters for GaPM-CDM (see 'Details').
+#' @param controlB List of control parameters for aPM-CDM (see 'Details').
+#' @param ... Further arguments to be passed to \code{controlA} and \code{controlB}.
+#'
+#' @return A list with components:
+#' \itemize{
+#'  \item \code{CV.error.A}: Cross-validation error for GaPM-CDM.
+#'  \item \code{AUC.A}: Area under the curve error for GaPM-CDM.
+#'  \item \code{CV.error.B}: Cross-validation error for aPM-CDM.
+#'  \item \code{AUC.B}: Area under the curve error for aPM-CDM.
+#' }
+#' @details Define CV.error.
+#' @author Camilo Cárdenas-Hurtado (\email{c.a.cardenas-hurtado@@lse.ac.uk}).
+#' @export
+pmCDM.CV.error <- function(Ytrain, Ytest, Qmatrix,
+                           q, controlA = list(), controlB = list(), ...){
+
+  controlA = pr_control_gaCDM(controlA,...)
+  controlB = pr_control_aCDM(controlB,...)
+  controlA$sampler = match.arg(controlA$sampler, c("ULA","MALA","RWMH"))
+  controlB$sampler = controlA$sampler
+  controlA$basis = match.arg(controlA$basis, c("is","bs","pwl"))
+  if(controlA$basis == "pwl" & is.null(controlA$degree)) controlA$degree = 1
+  if(controlA$basis != "pwl" & is.null(controlA$degree)) controlA$degree = 2
+
+  if(controlA$verbose) cat(paste0("\n Generating random starting values for latent variables q = ", q," ..."))
+  zn = mvtnorm::rmvnorm(nrow(Ytrain),mean = rep(0,q))
+  if(controlA$verbose) cat(paste0("\r Generating random starting values for latent variables q = ", q," ... (Done!) \n"))
+
+  p = ncol(Ytrain)
+  tp = length(controlA$knots) + controlA$degree
+  Apat = as.matrix(expand.grid(lapply(1:q,function(x) c(0,1))))
+  ppDA = pr_param_gaCDM(p,q,tp,F,controlA)
+  ppDB = pr_param_aCDM(p,q,Qmatrix,F,controlB)
+
+  if(controlA$verbose) cat(" Fitting model: Generalized Additive PM-CDM \n")
+  fitA = gapmCDM_fit_rcpp(Y = Ytrain[],A = ppDA$A[],C = ppDA$C[],D = ppDA$D[],mu = ppDA$mu[], R = ppDA$R[], Z = zn[], control = controlA)
+  if(controlA$verbose) cat(" Fitting model: Additive PM-CDM \n")
+  fitB = apmCDM_fit_rcpp(Y = Ytrain[],G = ppDB$G[], Qmatrix = Qmatrix[], Apat = Apat[], mu = ppDB$mu[], R = ppDB$R[], Z = zn[], control = controlB)
+  if(controlB$verbose) cat(" CV-Error: Generalized Additive PM-CDM \n")
+  outA = gapmCDM_cv_rcpp(Ytrain[], Ytest[],A = fitA$A[],C = fitA$C[],mu = fitA$mu[],R = fitA$R[], Z = zn[], control = controlA)
+  if(controlB$verbose) cat(" CV-Error: Additive PM-CDM \n")
+  outB = apmCDM_cv_rcpp(Ytrain[], Ytest[],G = fitB$G[],Qmatrix = Qmatrix[], Apat = Apat[],mu = fitB$mu[],R = fitB$R[], Z = zn[], control = controlB)
+  errCVA = outA$CV.error
+  errCVB = outB$CV.error
+  predA = ROCR::prediction(outA$Yhat,outA$Yobs)
+  predB = ROCR::prediction(outB$Yhat,outB$Yobs)
+  aucCVA = unlist(methods::slot(ROCR::performance(predA, "auc"), "y.values"))
+  aucCVB = unlist(methods::slot(ROCR::performance(predB, "auc"), "y.values"))
+
+  return(list(CV.error.A = errCVA, AUC.A = aucCVA,
+              CV.error.B = errCVB, AUC.B = aucCVB)) #
 }
