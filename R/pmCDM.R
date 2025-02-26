@@ -426,7 +426,7 @@ apmCDM_sim <- function(n, p, q, Qmatrix, control = list(),
     stop("Argument `start.par' needs to be a list with elements `G', `mu', and `R'.")
   if(!is.null(start.par)){
     pp = start.par
-    if(nrow(pp$G) != ncol(data)) stop("Matrix `start.par$G' mismatch rows with p.")
+    if(nrow(pp$G) != nrow(Qmatrix)) stop("Matrix `start.par$G' mismatch rows with Qmatrix.")
     if(length(pp$mu) != nrow(pp$R)) stop("Lenght of `start.par$mu' and nrows of `start.par$R' differ.")
   } else {
     pp = pr_param_aCDM(p,q,Qmatrix,T,control)
