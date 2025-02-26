@@ -117,12 +117,17 @@ arma::vec newM(arma::vec& mu, arma::mat& R, arma::mat& Z, double ss){
    return(mu);
 }
 
-arma::mat newL(arma::vec& mu, arma::mat& L, arma::mat& Z, double ss){
+arma::mat newL(arma::vec& mu, arma::mat& L, arma::mat& Z, double ss, bool cor){
    const int n = Z.n_rows;
    const int q = L.n_rows;
    arma::uvec idL = arma::trimatl_ind(arma::size(L));
    arma::vec vL = L(idL);
-   arma::uvec iL = arma::regspace<arma::uvec>(1,idL.n_elem-1);
+   arma::uvec iL;
+   if(cor){
+      iL = arma::regspace<arma::uvec>(1,idL.n_elem-1);
+   } else {
+      iL = arma::regspace<arma::uvec>(0,idL.n_elem-1);
+   }
    idL = idL(iL);
    vL = vL(iL);
    const int np = vL.size();
@@ -144,7 +149,9 @@ arma::mat newL(arma::vec& mu, arma::mat& L, arma::mat& Z, double ss){
    }
    vL += ss*gL;
    L(idL) = vL;
-   L = ProxL(L);
+   if(cor){
+      L = ProxL(L);
+   }
    return(L);
 }
 

@@ -18,7 +18,7 @@ pr_control_gaCDM <- function(control, ...){
 pr_control_aCDM <- function(control, ...){
 
   con <- list("burn.in" = 3e3, "iter.lim" = 1e4, "tune.lim" = 3e3,
-              "stop.eps" = 1e-5, "max.G0" = 0.10,
+              "stop.eps" = 1e-5, "max.G0" = 0.10, "cor.R" = T,
               "h" = 1e-2, "tune.eps" = 0.1, "return.trace" = F,
               "nsim" = 1000, "verbose" = T, "seed" = NULL, "mu" = NULL, "R" = NULL,
               "start.zn" = "random", "sampler" = "ULA",

@@ -11,7 +11,7 @@ Rcpp::List newAD_MD(Rcpp::List& d1AD, arma::mat& Aold, arma::cube& Dold, double 
 
 arma::vec newM(arma::vec& mu, arma::mat& R, arma::mat& Z, double ss);
 
-arma::mat newL(arma::vec& mu, arma::mat& L, arma::mat& Z, double ss);
+arma::mat newL(arma::vec& mu, arma::mat& L, arma::mat& Z, double ss, bool cor);
 
 arma::mat newZ_ULA(arma::mat& Y, arma::mat& PI, arma::mat& Z, arma::mat& A, arma::cube& C,
                    arma::vec& mu, arma::mat& R,

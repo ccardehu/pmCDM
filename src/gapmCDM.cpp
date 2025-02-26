@@ -127,7 +127,7 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
       Cn = D2C(Dn);
     }
     // arma::vec Mn = newM(mu,R,Z,ssAC/n);
-    arma::mat Ln = newL(mu,L,Z,ssAC/n);
+    arma::mat Ln = newL(mu,L,Z,ssAC/n,true);
     arma::mat Zn(arma::size(Z));
     if(sampler == "ULA"){
       Zn = newZ_ULA(Y,PI,Z,A,C,mu,R,spD,ssZ,knots,degree);
@@ -329,6 +329,7 @@ Rcpp::List apmCDM_fit_rcpp(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma:
   const bool verbose = control["verbose"];
   const bool stopFLAG = control["stop.atconv"];
   const bool traceFLAG = control["return.trace"];
+  const bool corFLAG = control["cor.R"];
   const std::string sampler = Rcpp::as<std::string>(control["sampler"]);
 
   const int n = Y.n_rows;
@@ -381,7 +382,7 @@ Rcpp::List apmCDM_fit_rcpp(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma:
     Rcpp::List dG = d1G(Y, aCDMlist);
     arma::mat Gn = newG_MD(dG,G,ssG/n);
     arma::vec Mn = newM(mu,R,Z,ssG/n);
-    arma::mat Ln = newL(mu,L,Z,ssG/n);
+    arma::mat Ln = newL(mu,L,Z,ssG/n,corFLAG);
     arma::mat Zn(arma::size(Z));
     if(sampler == "ULA"){
       Zn = newZ_ULA_aCDM(Y,Z,aCDMlist,mu,R,ssZ);
