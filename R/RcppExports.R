@@ -41,3 +41,7 @@ fy <- function(Y, A, C, mu, R, control) {
     .Call(`_pmCDM_fy`, Y, A, C, mu, R, control)
 }
 
+fy_aCDM <- function(Y, G, Qmatrix, Apat, mu, R, control) {
+    .Call(`_pmCDM_fy_aCDM`, Y, G, Qmatrix, Apat, mu, R, control)
+}
+

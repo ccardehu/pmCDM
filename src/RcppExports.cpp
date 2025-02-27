@@ -173,6 +173,23 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// fy_aCDM
+double fy_aCDM(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apat, arma::vec& mu, arma::mat& R, Rcpp::List& control);
+RcppExport SEXP _pmCDM_fy_aCDM(SEXP YSEXP, SEXP GSEXP, SEXP QmatrixSEXP, SEXP ApatSEXP, SEXP muSEXP, SEXP RSEXP, SEXP controlSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::mat& >::type Y(YSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type G(GSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type Qmatrix(QmatrixSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type Apat(ApatSEXP);
+    Rcpp::traits::input_parameter< arma::vec& >::type mu(muSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type R(RSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List& >::type control(controlSEXP);
+    rcpp_result_gen = Rcpp::wrap(fy_aCDM(Y, G, Qmatrix, Apat, mu, R, control));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_pmCDM_gapmCDM_sim_rcpp", (DL_FUNC) &_pmCDM_gapmCDM_sim_rcpp, 8},
@@ -185,6 +202,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pmCDM_genpar", (DL_FUNC) &_pmCDM_genpar, 6},
     {"_pmCDM_genpar_aCDM", (DL_FUNC) &_pmCDM_genpar_aCDM, 2},
     {"_pmCDM_fy", (DL_FUNC) &_pmCDM_fy, 6},
+    {"_pmCDM_fy_aCDM", (DL_FUNC) &_pmCDM_fy_aCDM, 7},
     {NULL, NULL, 0}
 };
 

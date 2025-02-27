@@ -561,6 +561,7 @@ Rcpp::List aCDM(arma::mat& G, arma::mat& Qmatrix, arma::mat& Z, arma::mat& Apat)
 
 }
 
+// [[Rcpp::export]]
 double fy_aCDM(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apat,
                arma::vec& mu, arma::mat& R, Rcpp::List& control){
 

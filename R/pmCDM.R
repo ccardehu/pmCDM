@@ -502,3 +502,40 @@ pmCDM.CV.error <- function(Ytrain, Ytest, Qmatrix,
   return(list(CV.error.A = errCVA, AUC.A = aucCVA,
               CV.error.B = errCVB, AUC.B = aucCVB)) #
 }
+
+#' Find number of latent variables (q) using cross-validated MLLK (PM-ACDM)
+#'
+#' @param Ytrain Matrix with observed binary entries to train the model. Missing entries (\code{Ytest}) coded as \code{NA}.
+#' @param Ytest Matrix with observed binary entries to test the model. All entries are \code{NA} but the missing in \code{Ytrain}.
+#' @param q Number of latent variables.
+#' @param control List of control parameters (see 'Details').
+#' @param ... Further arguments to be passed to \code{control}.
+#'
+#' @return A list with components:
+#' \itemize{
+#'  \item \code{mllk.test}: Test data marginal log-likelihood.
+#'  \item \code{mllk.train}: Train data marginal log-likelihood.
+#'  \item \code{mllk.BIC} Train data BIC.
+#' }
+#' @details Define CV.error.
+#' @author Camilo Cárdenas-Hurtado (\email{c.a.cardenas-hurtado@@lse.ac.uk}).
+#' @export
+apmCDM_mllkCV <- function(Ytrain, Ytest, q, Qmatrix, control = list(), ...){
+  control = pr_control_aCDM(control,...)
+  control$sampler = match.arg(control$sampler, c("ULA","MALA","RWMH"))
+  if(!is.null(control$start.zn) & is.matrix(control$start.zn)){
+    zn = control$start.zn
+  } else {
+    if(control$verbose) cat(paste0("\n Generating random starting values for latent variables q = ", q," ..."))
+    zn = mvtnorm::rmvnorm(nrow(Ytrain),mean = rep(0,q))
+    if(control$verbose) cat(paste0("\r Generating random starting values for latent variables q = ", q," ... (Done!) \n"))
+  }
+
+  Apat = as.matrix(expand.grid(lapply(1:q,function(x) c(0,1))))
+  p = ncol(Ytrain)
+  ppD1 = pr_param_aCDM(p,q,Qmatrix,F,control)
+  if(!is.null(control$seed)) set.seed(control$seed)
+  fit1 = apmCDM_fit_rcpp(Y = Ytrain[], G = ppD1$G[], Qmatrix = Qmatrix[], Apat = Apat[], mu = ppD1$mu[], R = ppD1$R[], Z= zn[], control = control)
+  testmllk = fy_aCDM(Ytest[], G = fit1$G[], Qmatrix = Qmatrix[], Apat = Apat[], mu = fit1$mu[], R = fit1$R[], control = control)
+  return(list(mllk.test = testmllk, mllk.train = fit1$llk, BIC.train = fit1$BIC)) #
+}
