@@ -41,13 +41,17 @@ arma::mat prob(arma::mat& A, arma::cube& C, arma::mat& ism);
 
 arma::mat fyz(arma::mat& Y, arma::mat& PI);
 
-arma::mat fz(arma::mat& Z, arma::mat& R);
+arma::mat fz(arma::mat& Z, arma::vec& mu, arma::mat& R);
 
-double fy(arma::mat& Y, arma::mat& A, arma::cube& C,
-          arma::vec& mu, arma::mat& R, Rcpp::List& control);
+double fy_gapmCDM(arma::mat& Y, arma::mat& A, arma::cube& C,
+                  arma::vec& mu, arma::mat& R, Rcpp::List& control);
+
+double fy_gapmCDM_IS(arma::mat& Y, arma::mat& A, arma::cube& C,
+                     arma::vec& mu, arma::mat& R,
+                     arma::rowvec& pmur, arma::mat& pR, Rcpp::List& control);
 
 Rcpp::List d1AC(arma::mat& Y, arma::mat& PI, arma::mat& ism,
-               arma::mat& A, arma::cube& C);
+                arma::mat& A, arma::cube& C);
 
 arma::mat d1CdD(arma::vec& d);
 
@@ -66,6 +70,10 @@ Rcpp::List aCDM(arma::mat& G, arma::mat& Qmatrix, arma::mat& Z, arma::mat& Apat)
 
 double fy_aCDM(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apat,
                arma::vec& mu, arma::mat& R, Rcpp::List& control);
+
+double fy_aCDM_IS(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apat,
+                  arma::vec& mu, arma::mat& R,
+                  arma::rowvec& pmur, arma::mat& pR, Rcpp::List& control);
 
 Rcpp::List d1G(arma::mat& Y, Rcpp::List aCDMlist);
 

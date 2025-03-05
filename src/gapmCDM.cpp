@@ -75,6 +75,8 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
   arma::mat Rout(arma::size(R));
   arma::mat spM(n,q*np), spD(n,q*np);
   arma::cube spObj(n,q*np,2);
+  arma::mat posR(q,q);
+  arma::rowvec posMu(q);
 
   arma::uvec Rld = arma::trimatl_ind(arma::size(R),-1);
 
@@ -150,6 +152,8 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
       Mout += mu;
       Rout += R;
       Zout += Z;
+      posR += arma::cov(Z);
+      posMu += arma::mean(Z,0);
       for(int t1 = window - 1; t1 > 0; t1--){
         theta.row(t1) = theta.row(t1 - 1);
       }
@@ -163,7 +167,7 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
       double maxvalue = arma::max(arma::abs(arma::vectorise(dtheta)));
       if(iter % 10 == 0){
         patrace.row(iter/10-1) = input;
-        double fzll = arma::accu(fz(Z,R));
+        double fzll = arma::accu(fz(Z,mu,R));
         lltrace(iter/10-1,0) = fzll;
         double fyzll = arma::accu(fyz(Y,PI));
         lltrace(iter/10-1,1) = fyzll;
@@ -194,11 +198,15 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
   Mout /= (iter - burnin);
   Rout /= (iter - burnin);
   Zout /= (iter - burnin);
+  posR /= (iter - burnin);
+  posMu /= (iter - burnin);
 
   const int nsim = control["nsim"];
   double llk(0), BIC(0), AIC(0);
   if(nsim != 0){
-    llk = fy(Y,Aout,Cout,Mout,Rout,control);
+    // llk = fy_gapmCDM(Y,Aout,Cout,Mout,Rout,control);
+    llk = fy_gapmCDM_IS(Y,Aout,Cout,Mout, Rout,
+                        posMu,posR,control);
     BIC = -2*llk + std::log(n)*Aout.n_elem;
     AIC = -2*llk + 2*Aout.n_elem;
   }
@@ -342,6 +350,8 @@ Rcpp::List apmCDM_fit_rcpp(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma:
   arma::mat Gout(arma::size(G)), Gn(arma::size(G));
   arma::vec Mout(arma::size(mu)), Mn(arma::size(mu));
   arma::mat Rout(arma::size(R));
+  arma::mat posR(q,q);
+  arma::rowvec posMu(q);
 
   arma::uvec Rld = arma::trimatl_ind(arma::size(R),-1);
 
@@ -401,6 +411,8 @@ Rcpp::List apmCDM_fit_rcpp(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma:
       Mout += mu;
       Rout += R;
       Zout += Z;
+      posR += arma::cov(Z);
+      posMu += arma::mean(Z,0);
       for(int t1 = window - 1; t1 > 0; t1--){
         theta.row(t1) = theta.row(t1 - 1);
       }
@@ -414,7 +426,7 @@ Rcpp::List apmCDM_fit_rcpp(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma:
       double maxvalue = arma::max(arma::abs(arma::vectorise(dtheta)));
       if(iter % 10 == 0){
         patrace.row(iter/10-1) = input;
-        double fzll = arma::accu(fz(Z,R));
+        double fzll = arma::accu(fz(Z,mu,R));
         lltrace(iter/10-1,0) = fzll;
         double fyzll = arma::accu(fyz(Y,PI));
         lltrace(iter/10-1,1) = fyzll;
@@ -443,11 +455,15 @@ Rcpp::List apmCDM_fit_rcpp(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma:
   Mout /= (iter - burnin);
   Rout /= (iter - burnin);
   Zout /= (iter - burnin);
+  posR /= (iter - burnin);
+  posMu /= (iter - burnin);
 
   const int nsim = control["nsim"];
   double llk(0), BIC(0), AIC(0);
   if(nsim != 0){
-    llk = fy_aCDM(Y,Gout,Qmatrix,Apat,Mout,Rout,control);
+    // llk = fy_aCDM(Y,Gout,Qmatrix,Apat,Mout,Rout,control);
+    llk = fy_aCDM_IS(Y,Gout,Qmatrix,Apat,Mout,Rout,
+                     posMu,posR,control);
     BIC = -2*llk + std::log(n)*tp;
     AIC = -2*llk + 2*tp;
   }

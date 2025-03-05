@@ -168,8 +168,8 @@ gapmCDM_findqUI <- function(data, qmax = 10, qmin = 2, alpha = 0.05, type = "cro
       outD0 <- gapmCDM_fit_rcpp(Y = data[D0,],A = ppD0$A[],C = ppD0$C[],D = ppD0$D[],mu = ppD0$mu[],R = ppD0$R[], Z = znD0[], control = control)
 
       if(control$verbose) cat(paste0("\n Computing marginal log-likelihood on D0 for comparison (q = ",q," vs. q = ",q+1,") ..."))
-      L0 = fy(data[D0,], outD0$A[], outD0$C[], outD0$R[], controlA)
-      L1 = fy(data[D0,], outD1$A[], outD1$C[], outD1$R[], controlA)
+      L0 = fy_gapmCDM(data[D0,], outD0$A[], outD0$C[], outD0$R[], controlA)
+      L1 = fy_gapmCDM(data[D0,], outD1$A[], outD1$C[], outD1$R[], controlA)
       if(control$verbose) cat(paste0("\r Computing marginal log-likelihood on D0 for comparison (q = ",q," vs. q = ",q+1,") ... (Done!)"))
       tt = L1 - L0
       if(control$verbose) cat(paste0("\n log(L1): ", round(L1,4), ", log(L0): ", round(L0,4),
@@ -222,10 +222,10 @@ gapmCDM_findqUI <- function(data, qmax = 10, qmin = 2, alpha = 0.05, type = "cro
       outD1b <- gapmCDM_fit_rcpp(Y = data[D1,],A = ppq0$A[],C = ppq0$C[],D = ppq0$D[],mu = ppq0$mu[],R = ppq0$R[], Z = znD1b[], control = control)
 
       if(control$verbose) cat(paste0("\n Computing marginal log-likelihoods on D0 and D1 for comparison (q = ",q," vs. q = ",q+1,") ..."))
-      L0a = fy(data[D0,], outD0b$A[], outD0b$C[], outD0b$mu[], outD0b$R[], controlA)
-      L1a = fy(data[D0,], outD1a$A[], outD1a$C[], outD1a$mu[], outD1a$R[], controlA)
-      L0b = fy(data[D1,], outD1b$A[], outD1b$C[], outD1b$mu[], outD1b$R[], controlA)
-      L1b = fy(data[D1,], outD0a$A[], outD0a$C[], outD0a$mu[], outD0a$R[], controlA)
+      L0a = fy_gapmCDM(data[D0,], outD0b$A[], outD0b$C[], outD0b$mu[], outD0b$R[], controlA)
+      L1a = fy_gapmCDM(data[D0,], outD1a$A[], outD1a$C[], outD1a$mu[], outD1a$R[], controlA)
+      L0b = fy_gapmCDM(data[D1,], outD1b$A[], outD1b$C[], outD1b$mu[], outD1b$R[], controlA)
+      L1b = fy_gapmCDM(data[D1,], outD0a$A[], outD0a$C[], outD0a$mu[], outD0a$R[], controlA)
       tt = log((exp(L1a - L0a) + exp(L1b - L0b))/2)
       if(control$verbose) cat(paste0("\r Computing marginal log-likelihoods on D0 and D1 for comparison (q = ",q," vs. q = ",q+1,") ... (Done!) \n"))
       if(control$verbose) cat(paste0("\n log(L1a): ", round(L1a,4), ", log(L0a): ", round(L0a,4),
@@ -328,7 +328,7 @@ gapmCDM_mllkCV <- function(Ytrain, Ytest, q, control = list(), ...){
   ppD1 = pr_param_gaCDM(p,q,tp,F,control)
   if(!is.null(control$seed)) set.seed(control$seed)
   fit1 = gapmCDM_fit_rcpp(Y = Ytrain[],A = ppD1$A[],C = ppD1$C[],D = ppD1$D[],mu = ppD1$mu[],R = ppD1$R[], Z = zn[], control = control)
-  testmllk = fy(Ytest[],A = fit1$A[],C = fit1$C[],mu = fit1$mu[],R = fit1$R[], control = control)
+  testmllk = fy_gapmCDM(Ytest[],A = fit1$A[],C = fit1$C[],mu = fit1$mu[],R = fit1$R[], control = control)
   return(list(mllk.test = testmllk, mllk.train = fit1$llk, BIC.train = fit1$BIC)) #
 }
 

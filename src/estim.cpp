@@ -193,8 +193,8 @@ arma::mat newZ_MALA(arma::mat& Y, arma::mat& PI,arma::mat& Z, arma::mat& A, arma
       spD = spObj.slice(1);
    }
    arma::mat PIn = prob(A,C,spM);
-   arma::vec pdo = arma::sum(fyz(Y,PI),1) + arma::sum(fz(Z,R),1);
-   arma::vec pdn = arma::sum(fyz(Y,PIn),1) + arma::sum(fz(Zn,R),1);
+   arma::vec pdo = arma::sum(fyz(Y,PI),1) + arma::sum(fz(Z,mu,R),1);
+   arma::vec pdn = arma::sum(fyz(Y,PIn),1) + arma::sum(fz(Zn,mu,R),1);
    arma::mat YmPIn = (Y - PIn)/(PIn % (1-PIn));
    arma::mat gpzn = d1PostZ(YmPIn,Zn,spD,A,C,mu,R);
    arma::vec qo = -1/(4*h) * arma::pow(arma::vecnorm(Z - Zn - h*gpzn,2,1),2);
@@ -238,8 +238,8 @@ arma::mat newZ_RWMH(arma::mat& Y, arma::mat& PI,arma::mat& Z, arma::mat& A, arma
       spM = spObj.slice(0);
    }
    arma::mat PIn = prob(A,C,spM);
-   arma::vec pdo = arma::sum(fyz(Y,PI),1) + arma::sum(fz(Z,R),1);
-   arma::vec pdn = arma::sum(fyz(Y,PIn),1) + arma::sum(fz(Zn,R),1);
+   arma::vec pdo = arma::sum(fyz(Y,PI),1) + arma::sum(fz(Z,mu,R),1);
+   arma::vec pdn = arma::sum(fyz(Y,PIn),1) + arma::sum(fz(Zn,mu,R),1);
 
    arma::mat Zout(arma::size(Z));
    for(int i = 0; i < n; i++){
@@ -298,8 +298,8 @@ arma::mat newZ_RWMH_aCDM(arma::mat& Y, arma::mat& Z, Rcpp::List aCDMlist,
 
    Rcpp::List aCDMlistNew = aCDM(G,Qmatrix,Zn,Apat);
    arma::mat PIn = Rcpp::as<arma::mat>(aCDMlistNew["PI"]);
-   arma::vec pdo = arma::sum(fyz(Y,PI),1) + arma::sum(fz(Z,R),1);
-   arma::vec pdn = arma::sum(fyz(Y,PIn),1) + arma::sum(fz(Zn,R),1);
+   arma::vec pdo = arma::sum(fyz(Y,PI),1) + arma::sum(fz(Z,mu,R),1);
+   arma::vec pdn = arma::sum(fyz(Y,PIn),1) + arma::sum(fz(Zn,mu,R),1);
 
    arma::mat Zout(arma::size(Z));
    for(int i = 0; i < n; i++){
@@ -328,8 +328,8 @@ arma::mat newZ_MALA_aCDM(arma::mat& Y, arma::mat& Z, Rcpp::List aCDMlist,
 
    Rcpp::List aCDMlistNew = aCDM(G,Qmatrix,Zn,Apat);
    arma::mat PIn = Rcpp::as<arma::mat>(aCDMlistNew["PI"]);
-   arma::vec pdo = arma::sum(fyz(Y,PI),1) + arma::sum(fz(Z,R),1);
-   arma::vec pdn = arma::sum(fyz(Y,PIn),1) + arma::sum(fz(Zn,R),1);
+   arma::vec pdo = arma::sum(fyz(Y,PI),1) + arma::sum(fz(Z,mu,R),1);
+   arma::vec pdn = arma::sum(fyz(Y,PIn),1) + arma::sum(fz(Zn,mu,R),1);
 
    arma::mat gpzn = d1PostZ_aCDM(Y,Zn,aCDMlistNew,mu,R);
    arma::vec qo = -1/(4*h) * arma::pow(arma::vecnorm(Z - Zn - h*gpzn,2,1),2);

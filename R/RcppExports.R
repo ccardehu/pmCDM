@@ -37,11 +37,19 @@ genpar_aCDM <- function(Qmatrix, maxG0) {
     .Call(`_pmCDM_genpar_aCDM`, Qmatrix, maxG0)
 }
 
-fy <- function(Y, A, C, mu, R, control) {
-    .Call(`_pmCDM_fy`, Y, A, C, mu, R, control)
+fy_gapmCDM <- function(Y, A, C, mu, R, control) {
+    .Call(`_pmCDM_fy_gapmCDM`, Y, A, C, mu, R, control)
+}
+
+fy_gapmCDM_IS <- function(Y, A, C, mu, R, pmur, pR, control) {
+    .Call(`_pmCDM_fy_gapmCDM_IS`, Y, A, C, mu, R, pmur, pR, control)
 }
 
 fy_aCDM <- function(Y, G, Qmatrix, Apat, mu, R, control) {
     .Call(`_pmCDM_fy_aCDM`, Y, G, Qmatrix, Apat, mu, R, control)
+}
+
+fy_aCDM_IS <- function(Y, G, Qmatrix, Apat, mu, R, pmur, pR, control) {
+    .Call(`_pmCDM_fy_aCDM_IS`, Y, G, Qmatrix, Apat, mu, R, pmur, pR, control)
 }
 

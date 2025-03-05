@@ -320,9 +320,8 @@ arma::mat fyz(arma::mat& Y, arma::mat& PI){
   return(out);
 }
 
-arma::mat fz(arma::mat& Z, arma::mat& R){
+arma::mat fz(arma::mat& Z, arma::vec& mu, arma::mat& R){
   const int n = Z.n_rows;
-  arma::vec mu(R.n_cols,arma::fill::zeros);
   arma::vec out(n);
   for(int i = 0; i < n; i++){
     arma::vec zrow = Z.row(i).t();
@@ -332,7 +331,7 @@ arma::mat fz(arma::mat& Z, arma::mat& R){
 }
 
 // [[Rcpp::export]]
-double fy(arma::mat& Y, arma::mat& A, arma::cube& C,
+double fy_gapmCDM(arma::mat& Y, arma::mat& A, arma::cube& C,
           arma::vec& mu, arma::mat& R, Rcpp::List& control){
 
   const unsigned int degree = control["degree"];
@@ -361,6 +360,53 @@ double fy(arma::mat& Y, arma::mat& A, arma::cube& C,
     }
     arma::mat piH = prob(A,C,isMo);
     Eobj.col(ii) = arma::sum(fyz(Y,piH),1);
+  }
+  arma::vec maxEobj(n);
+  for(int m = 0; m < n; m++){
+    maxEobj(m) = arma::max(Eobj.row(m));
+  }
+  Eobj.each_col() -= maxEobj;
+  arma::mat EEobj = arma::exp(Eobj);
+  arma::vec V1 = arma::log(arma::sum(EEobj,1));
+  mllk = arma::accu(V1) + arma::accu(maxEobj) - n*std::log(nsim);
+  if(verbose) Rcpp::Rcout << "\r Calculating marginal log-likelihood ... (m-llk: " << std::to_string(mllk) << ")\n";
+  return(mllk);
+}
+
+// [[Rcpp::export]]
+double fy_gapmCDM_IS(arma::mat& Y, arma::mat& A, arma::cube& C,
+                     arma::vec& mu, arma::mat& R,
+                     arma::rowvec& pmur, arma::mat& pR, Rcpp::List& control){
+
+  const unsigned int degree = control["degree"];
+  const int nsim = control["nsim"];
+  arma::vec knots = control["knots"];
+  const bool verbose = control["verbose"];
+  const std::string sampler = Rcpp::as<std::string>(control["sampler"]);
+  const std::string basis = Rcpp::as<std::string>(control["basis"]);
+
+  const int n = Y.n_rows;
+  if(verbose) Rcpp::Rcout << "\n Calculating marginal log-likelihood ... ";
+  double mllk = 0;
+  arma::mat Eobj(n,nsim);
+  arma::mat Zsim(n,R.n_cols);
+  arma::mat isMo(n,R.n_cols * C.n_cols);
+  arma::mat isDo(n,R.n_cols * C.n_cols);
+  arma::cube spObj(n,R.n_cols * C.n_cols,2);
+  arma::vec pmu = pmur.t();
+  for(int ii = 0; ii < nsim; ii++){
+    if (ii % 2 == 0) Rcpp::checkUserInterrupt();
+    Zsim = rmvNorm(n,pmu,pR);
+    arma::mat Usim = Z2U(Zsim);
+    if(basis == "is"){
+      spObj = SpU_isp(Usim,knots,degree);
+      isMo = spObj.slice(0);
+    } else {
+      spObj = SpU_bsp(Usim,knots,degree);
+      isMo = spObj.slice(0);
+    }
+    arma::mat piH = prob(A,C,isMo);
+    Eobj.col(ii) = arma::sum(fyz(Y,piH),1) + fz(Zsim,mu,R) - fz(Zsim,pmu,pR);
   }
   arma::vec maxEobj(n);
   for(int m = 0; m < n; m++){
@@ -580,6 +626,40 @@ double fy_aCDM(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apat,
     Rcpp::List aCDMlist = aCDM(G,Qmatrix,Zsim,Apat);
     arma::mat piH = aCDMlist["PI"];
     Eobj.col(ii) = arma::sum(fyz(Y,piH),1);
+  }
+  arma::vec maxEobj(n);
+  for(int m = 0; m < n; m++){
+    maxEobj(m) = arma::max(Eobj.row(m));
+  }
+  Eobj.each_col() -= maxEobj;
+  arma::mat EEobj = arma::exp(Eobj);
+  arma::vec V1 = arma::log(arma::sum(EEobj,1));
+  mllk = arma::accu(V1) + arma::accu(maxEobj) - n*std::log(nsim);
+  if(verbose) Rcpp::Rcout << "\r Calculating marginal log-likelihood ... (m-llk: " << std::to_string(mllk) << ")\n";
+  return(mllk);
+}
+
+// [[Rcpp::export]]
+double fy_aCDM_IS(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apat,
+                  arma::vec& mu, arma::mat& R,
+                  arma::rowvec& pmur, arma::mat& pR, Rcpp::List& control){
+
+  const int nsim = control["nsim"];
+  const bool verbose = control["verbose"];
+
+  const int n = Y.n_rows;
+  if(verbose) Rcpp::Rcout << "\n Calculating marginal log-likelihood ... ";
+  double mllk = 0;
+  arma::mat Eobj(n,nsim);
+  arma::mat Zsim(n,R.n_cols);
+  arma::vec pmu = pmur.t();
+  for(int ii = 0; ii < nsim; ii++){
+    if (ii % 2 == 0) Rcpp::checkUserInterrupt();
+    Zsim = rmvNorm(n,pmu,pR);
+    arma::mat Usim = Z2U(Zsim);
+    Rcpp::List aCDMlist = aCDM(G,Qmatrix,Zsim,Apat);
+    arma::mat piH = aCDMlist["PI"];
+    Eobj.col(ii) = arma::sum(fyz(Y,piH),1) + fz(Zsim,mu,R) - fz(Zsim,pmu,pR);
   }
   arma::vec maxEobj(n);
   for(int m = 0; m < n; m++){
