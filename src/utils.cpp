@@ -369,7 +369,7 @@ double fy_gapmCDM(arma::mat& Y, arma::mat& A, arma::cube& C,
   arma::mat EEobj = arma::exp(Eobj);
   arma::vec V1 = arma::log(arma::sum(EEobj,1));
   mllk = arma::accu(V1) + arma::accu(maxEobj) - n*std::log(nsim);
-  if(verbose) Rcpp::Rcout << "\r Calculating marginal log-likelihood ... (m-llk: " << std::to_string(mllk) << ")\n";
+  if(verbose) Rcpp::Rcout << "\r Calculating marginal log-likelihood ... (m-llk: " << std::to_string(mllk) << ")";
   return(mllk);
 }
 
@@ -386,7 +386,7 @@ double fy_gapmCDM_IS(arma::mat& Y, arma::mat& A, arma::cube& C,
   const std::string basis = Rcpp::as<std::string>(control["basis"]);
 
   const int n = Y.n_rows;
-  if(verbose) Rcpp::Rcout << "\n Calculating marginal log-likelihood ... ";
+  if(verbose) Rcpp::Rcout << "\n Calculating marginal log-likelihood (via IS) ... ";
   double mllk = 0;
   arma::mat Eobj(n,nsim);
   arma::mat Zsim(n,R.n_cols);
@@ -416,7 +416,7 @@ double fy_gapmCDM_IS(arma::mat& Y, arma::mat& A, arma::cube& C,
   arma::mat EEobj = arma::exp(Eobj);
   arma::vec V1 = arma::log(arma::sum(EEobj,1));
   mllk = arma::accu(V1) + arma::accu(maxEobj) - n*std::log(nsim);
-  if(verbose) Rcpp::Rcout << "\r Calculating marginal log-likelihood ... (m-llk: " << std::to_string(mllk) << ")\n";
+  if(verbose) Rcpp::Rcout << "\r Calculating marginal log-likelihood (via IS) ... (m-llk: " << std::to_string(mllk) << ")";
   return(mllk);
 }
 
@@ -635,7 +635,7 @@ double fy_aCDM(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apat,
   arma::mat EEobj = arma::exp(Eobj);
   arma::vec V1 = arma::log(arma::sum(EEobj,1));
   mllk = arma::accu(V1) + arma::accu(maxEobj) - n*std::log(nsim);
-  if(verbose) Rcpp::Rcout << "\r Calculating marginal log-likelihood ... (m-llk: " << std::to_string(mllk) << ")\n";
+  if(verbose) Rcpp::Rcout << "\r Calculating marginal log-likelihood ... (m-llk: " << std::to_string(mllk) << ")";
   return(mllk);
 }
 
@@ -648,7 +648,7 @@ double fy_aCDM_IS(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apa
   const bool verbose = control["verbose"];
 
   const int n = Y.n_rows;
-  if(verbose) Rcpp::Rcout << "\n Calculating marginal log-likelihood ... ";
+  if(verbose) Rcpp::Rcout << "\n Calculating marginal log-likelihood (via IS) ... ";
   double mllk = 0;
   arma::mat Eobj(n,nsim);
   arma::mat Zsim(n,R.n_cols);
@@ -669,7 +669,7 @@ double fy_aCDM_IS(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apa
   arma::mat EEobj = arma::exp(Eobj);
   arma::vec V1 = arma::log(arma::sum(EEobj,1));
   mllk = arma::accu(V1) + arma::accu(maxEobj) - n*std::log(nsim);
-  if(verbose) Rcpp::Rcout << "\r Calculating marginal log-likelihood ... (m-llk: " << std::to_string(mllk) << ")\n";
+  if(verbose) Rcpp::Rcout << "\r Calculating marginal log-likelihood (via IS) ... (m-llk: " << std::to_string(mllk) << ")";
   return(mllk);
 }
 

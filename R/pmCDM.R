@@ -279,6 +279,7 @@ gapmCDM_findqCV <- function(Ytrain, Ytest, q, control = list(), ...){
   tp = length(control$knots) + control$degree
   ppD1 = pr_param_gaCDM(p,q,tp,F,control)
   if(!is.null(control$seed)) set.seed(control$seed)
+  if(control$verbose) cat(paste0("\n [Train data]"))
   fit1 = gapmCDM_fit_rcpp(Y = Ytrain[],A = ppD1$A[],C = ppD1$C[],D = ppD1$D[],mu = ppD1$mu[], R = ppD1$R[], Z = zn[], control = control)
   bicgapmCDM = fit1$BIC
   mllkgapmCDM = fit1$llk
@@ -318,18 +319,22 @@ gapmCDM_mllkCV <- function(Ytrain, Ytest, q, control = list(), ...){
   if(!is.null(control$start.zn) & is.matrix(control$start.zn)){
     zn = control$start.zn
   } else {
-      if(control$verbose) cat(paste0("\n Generating random starting values for latent variables q = ", q," ..."))
+      if(control$verbose) cat(paste0("\n Generating random starting values ..."))
       zn = mvtnorm::rmvnorm(nrow(Ytrain),mean = rep(0,q))
-      if(control$verbose) cat(paste0("\r Generating random starting values for latent variables q = ", q," ... (Done!) \n"))
+      if(control$verbose) cat(paste0("\r Generating random starting values ... (Done!) \n"))
   }
 
   p = ncol(Ytrain)
   tp = length(control$knots) + control$degree
   ppD1 = pr_param_gaCDM(p,q,tp,F,control)
   if(!is.null(control$seed)) set.seed(control$seed)
+  if(control$verbose) cat(paste0(" [ Train data ] \n"))
   fit1 = gapmCDM_fit_rcpp(Y = Ytrain[],A = ppD1$A[],C = ppD1$C[],D = ppD1$D[],mu = ppD1$mu[],R = ppD1$R[], Z = zn[], control = control)
-  testmllk = fy_gapmCDM(Ytest[],A = fit1$A[],C = fit1$C[],mu = fit1$mu[],R = fit1$R[], control = control)
-  return(list(mllk.test = testmllk, mllk.train = fit1$llk, BIC.train = fit1$BIC)) #
+  if(control$verbose) cat(paste0("\n [ Test data ] \n"))
+  # testmllk = fy_gapmCDM(Ytest[],A = fit1$A[],C = fit1$C[],mu = fit1$mu[],R = fit1$R[], control = control)
+  testmllk = fy_gapmCDM_IS(Ytest[],A = fit1$A[],C = fit1$C[],mu = fit1$mu[],R = fit1$R[],
+                           pmur = t(matrix(fit1$pos.mu[])), pR = fit1$posR[], control = control)
+  return(list(mllk.test = testmllk, mllk.train = fit1$llk, cdllk.trace = fit1$lltrace)) #
 }
 
 #' Fit an Partial-Mastery Additive Cognitive Diagnosis Model (PM-CDM).
@@ -526,16 +531,21 @@ apmCDM_mllkCV <- function(Ytrain, Ytest, q, Qmatrix, control = list(), ...){
   if(!is.null(control$start.zn) & is.matrix(control$start.zn)){
     zn = control$start.zn
   } else {
-    if(control$verbose) cat(paste0("\n Generating random starting values for latent variables q = ", q," ..."))
+    if(control$verbose) cat(paste0("\n Generating random starting values ..."))
     zn = mvtnorm::rmvnorm(nrow(Ytrain),mean = rep(0,q))
-    if(control$verbose) cat(paste0("\r Generating random starting values for latent variables q = ", q," ... (Done!) \n"))
+    if(control$verbose) cat(paste0("\r Generating random starting values ... (Done!) \n"))
   }
 
   Apat = as.matrix(expand.grid(lapply(1:q,function(x) c(0,1))))
   p = ncol(Ytrain)
   ppD1 = pr_param_aCDM(p,q,Qmatrix,F,control)
   if(!is.null(control$seed)) set.seed(control$seed)
+  if(control$verbose) cat(paste0(" [ Train data ] \n"))
   fit1 = apmCDM_fit_rcpp(Y = Ytrain[], G = ppD1$G[], Qmatrix = Qmatrix[], Apat = Apat[], mu = ppD1$mu[], R = ppD1$R[], Z= zn[], control = control)
-  testmllk = fy_aCDM(Ytest[], G = fit1$G[], Qmatrix = Qmatrix[], Apat = Apat[], mu = fit1$mu[], R = fit1$R[], control = control)
-  return(list(mllk.test = testmllk, mllk.train = fit1$llk, BIC.train = fit1$BIC)) #
+  # testmllk = fy_aCDM(Ytest[], G = fit1$G[], Qmatrix = Qmatrix[], Apat = Apat[], mu = fit1$mu[], R = fit1$R[], control = control)
+  if(control$verbose) cat(paste0("\n [ Test data ] \n"))
+  testmllk = fy_gapmCDM_IS(Ytest[],G = fit1$G[],Qmatrix = Qmatrix, Apat = Apat[],
+                           mu = fit1$mu[],R = fit1$R[],
+                           pmur = t(matrix(fit1$pos.mu[])), pR = fit1$posR[], control = control)
+  return(list(mllk.test = testmllk, mllk.train = fit1$llk, cdllk.trace = fit1$lltrace)) #
 }

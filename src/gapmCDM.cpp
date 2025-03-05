@@ -222,7 +222,9 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
                               Rcpp::Named("AIC") = AIC,
                               Rcpp::Named("cdllk.trace") = lltrace,
                               Rcpp::Named("ar.trace") = artrace,
-                              Rcpp::Named("theta.trace") = patrace);
+                              Rcpp::Named("theta.trace") = patrace,
+                              Rcpp::Named("pos.mu") = posMu,
+                              Rcpp::Named("pos.R") = posR);
   } else {
     return Rcpp::List::create(Rcpp::Named("A") = Aout,
                               Rcpp::Named("C") = Cout,
@@ -231,7 +233,9 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
                               Rcpp::Named("Z") = Zout,
                               Rcpp::Named("llk") = llk,
                               Rcpp::Named("BIC") = BIC,
-                              Rcpp::Named("AIC") = AIC);
+                              Rcpp::Named("AIC") = AIC,
+                              Rcpp::Named("pos.mu") = posMu,
+                              Rcpp::Named("pos.R") = posR);
   }
 }
 
@@ -478,7 +482,9 @@ Rcpp::List apmCDM_fit_rcpp(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma:
                               Rcpp::Named("AIC") = AIC,
                               Rcpp::Named("cdllk.trace") = lltrace,
                               Rcpp::Named("ar.trace") = artrace,
-                              Rcpp::Named("theta.trace") = patrace);
+                              Rcpp::Named("theta.trace") = patrace,
+                              Rcpp::Named("pos.mu") = posMu,
+                              Rcpp::Named("pos.R") = posR);
   } else {
     return Rcpp::List::create(Rcpp::Named("G") = Gout,
                               Rcpp::Named("mu") = Mout,
@@ -486,7 +492,9 @@ Rcpp::List apmCDM_fit_rcpp(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma:
                               Rcpp::Named("Z") = Zout,
                               Rcpp::Named("llk") = llk,
                               Rcpp::Named("BIC") = BIC,
-                              Rcpp::Named("AIC") = AIC);
+                              Rcpp::Named("AIC") = AIC,
+                              Rcpp::Named("pos.mu") = posMu,
+                              Rcpp::Named("pos.R") = posR);
   }
 }
 
