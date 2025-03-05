@@ -312,6 +312,8 @@ gapmCDM_findqCV <- function(Ytrain, Ytest, q, control = list(), ...){
 #' @export
 gapmCDM_mllkCV <- function(Ytrain, Ytest, q, control = list(), ...){
   control = pr_control_gaCDM(control,...)
+  if(control$verbose) cat(" Model: Generalized Additive PM-CDM \n")
+  if(control$verbose) cat(paste0(" [ Training data ] \n"))
   control$sampler = match.arg(control$sampler, c("ULA","MALA","RWMH"))
   control$basis = match.arg(control$basis, c("is","bs","pwl"))
   if(control$basis == "pwl" & is.null(control$degree)) control$degree = 1
@@ -319,7 +321,7 @@ gapmCDM_mllkCV <- function(Ytrain, Ytest, q, control = list(), ...){
   if(!is.null(control$start.zn) & is.matrix(control$start.zn)){
     zn = control$start.zn
   } else {
-      if(control$verbose) cat(paste0("\n Generating random starting values ..."))
+      if(control$verbose) cat(paste0(" Generating random starting values ..."))
       zn = mvtnorm::rmvnorm(nrow(Ytrain),mean = rep(0,q))
       if(control$verbose) cat(paste0("\r Generating random starting values ... (Done!) \n"))
   }
@@ -328,13 +330,15 @@ gapmCDM_mllkCV <- function(Ytrain, Ytest, q, control = list(), ...){
   tp = length(control$knots) + control$degree
   ppD1 = pr_param_gaCDM(p,q,tp,F,control)
   if(!is.null(control$seed)) set.seed(control$seed)
-  if(control$verbose) cat(paste0(" [ Train data ] \n"))
   fit1 = gapmCDM_fit_rcpp(Y = Ytrain[],A = ppD1$A[],C = ppD1$C[],D = ppD1$D[],mu = ppD1$mu[],R = ppD1$R[], Z = zn[], control = control)
-  if(control$verbose) cat(paste0("\n [ Test data ] \n"))
+  if(control$return.trace){
+    colnames(fit1$cdllk.trace) <- c("fyz","fz")
+  }
+  if(control$verbose) cat(paste0("\n [ Testing data ]"))
   # testmllk = fy_gapmCDM(Ytest[],A = fit1$A[],C = fit1$C[],mu = fit1$mu[],R = fit1$R[], control = control)
   testmllk = fy_gapmCDM_IS(Ytest[],A = fit1$A[],C = fit1$C[],mu = fit1$mu[],R = fit1$R[],
-                           pmur = t(matrix(fit1$pos.mu[])), pR = fit1$posR[], control = control)
-  return(list(mllk.test = testmllk, mllk.train = fit1$llk, cdllk.trace = fit1$lltrace)) #
+                           pmur = t(matrix(fit1$pos.mu[])), pR = fit1$pos.R[], control = control)
+  return(list(mllk.test = testmllk, mllk.train = fit1$llk, cdllk.trace = fit1$cdllk.trace)) #
 }
 
 #' Fit an Partial-Mastery Additive Cognitive Diagnosis Model (PM-CDM).
@@ -527,11 +531,13 @@ pmCDM.CV.error <- function(Ytrain, Ytest, Qmatrix,
 #' @export
 apmCDM_mllkCV <- function(Ytrain, Ytest, q, Qmatrix, control = list(), ...){
   control = pr_control_aCDM(control,...)
+  if(control$verbose) cat(" Model: Additive PM-CDM \n")
+  if(control$verbose) cat(paste0(" [ Training data ] \n"))
   control$sampler = match.arg(control$sampler, c("ULA","MALA","RWMH"))
   if(!is.null(control$start.zn) & is.matrix(control$start.zn)){
     zn = control$start.zn
   } else {
-    if(control$verbose) cat(paste0("\n Generating random starting values ..."))
+    if(control$verbose) cat(paste0(" Generating random starting values ..."))
     zn = mvtnorm::rmvnorm(nrow(Ytrain),mean = rep(0,q))
     if(control$verbose) cat(paste0("\r Generating random starting values ... (Done!) \n"))
   }
@@ -540,12 +546,14 @@ apmCDM_mllkCV <- function(Ytrain, Ytest, q, Qmatrix, control = list(), ...){
   p = ncol(Ytrain)
   ppD1 = pr_param_aCDM(p,q,Qmatrix,F,control)
   if(!is.null(control$seed)) set.seed(control$seed)
-  if(control$verbose) cat(paste0(" [ Train data ] \n"))
   fit1 = apmCDM_fit_rcpp(Y = Ytrain[], G = ppD1$G[], Qmatrix = Qmatrix[], Apat = Apat[], mu = ppD1$mu[], R = ppD1$R[], Z= zn[], control = control)
+  if(control$return.trace){
+    colnames(fit1$cdllk.trace) <- c("fyz","fz")
+  }
   # testmllk = fy_aCDM(Ytest[], G = fit1$G[], Qmatrix = Qmatrix[], Apat = Apat[], mu = fit1$mu[], R = fit1$R[], control = control)
-  if(control$verbose) cat(paste0("\n [ Test data ] \n"))
-  testmllk = fy_gapmCDM_IS(Ytest[],G = fit1$G[],Qmatrix = Qmatrix, Apat = Apat[],
-                           mu = fit1$mu[],R = fit1$R[],
-                           pmur = t(matrix(fit1$pos.mu[])), pR = fit1$posR[], control = control)
-  return(list(mllk.test = testmllk, mllk.train = fit1$llk, cdllk.trace = fit1$lltrace)) #
+  if(control$verbose) cat(paste0("\n [ Testing data ]"))
+  testmllk = fy_aCDM_IS(Ytest[],G = fit1$G[],Qmatrix = Qmatrix, Apat = Apat[],
+                        mu = fit1$mu[],R = fit1$R[],
+                        pmur = t(matrix(fit1$pos.mu[])), pR = fit1$pos.R[], control = control)
+  return(list(mllk.test = testmllk, mllk.train = fit1$llk, cdllk.trace = fit1$cdllk.trace)) #
 }

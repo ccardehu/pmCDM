@@ -394,6 +394,7 @@ double fy_gapmCDM_IS(arma::mat& Y, arma::mat& A, arma::cube& C,
   arma::mat isDo(n,R.n_cols * C.n_cols);
   arma::cube spObj(n,R.n_cols * C.n_cols,2);
   arma::vec pmu = pmur.t();
+  arma::mat pr = 1.2*pR;
   for(int ii = 0; ii < nsim; ii++){
     if (ii % 2 == 0) Rcpp::checkUserInterrupt();
     Zsim = rmvNorm(n,pmu,pR);
@@ -406,7 +407,7 @@ double fy_gapmCDM_IS(arma::mat& Y, arma::mat& A, arma::cube& C,
       isMo = spObj.slice(0);
     }
     arma::mat piH = prob(A,C,isMo);
-    Eobj.col(ii) = arma::sum(fyz(Y,piH),1) + fz(Zsim,mu,R) - fz(Zsim,pmu,pR);
+    Eobj.col(ii) = arma::sum(fyz(Y,piH),1) + fz(Zsim,mu,R) - fz(Zsim,pmu,pr);
   }
   arma::vec maxEobj(n);
   for(int m = 0; m < n; m++){
@@ -653,13 +654,14 @@ double fy_aCDM_IS(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apa
   arma::mat Eobj(n,nsim);
   arma::mat Zsim(n,R.n_cols);
   arma::vec pmu = pmur.t();
+  arma::mat pr = 1.2*pR;
   for(int ii = 0; ii < nsim; ii++){
     if (ii % 2 == 0) Rcpp::checkUserInterrupt();
     Zsim = rmvNorm(n,pmu,pR);
     arma::mat Usim = Z2U(Zsim);
     Rcpp::List aCDMlist = aCDM(G,Qmatrix,Zsim,Apat);
     arma::mat piH = aCDMlist["PI"];
-    Eobj.col(ii) = arma::sum(fyz(Y,piH),1) + fz(Zsim,mu,R) - fz(Zsim,pmu,pR);
+    Eobj.col(ii) = arma::sum(fyz(Y,piH),1) + fz(Zsim,mu,R) - fz(Zsim,pmu,pr);
   }
   arma::vec maxEobj(n);
   for(int m = 0; m < n; m++){
