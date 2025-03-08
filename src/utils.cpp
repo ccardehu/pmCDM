@@ -394,7 +394,8 @@ double fy_gapmCDM_IS(arma::mat& Y, arma::mat& A, arma::cube& C,
   arma::mat isDo(n,R.n_cols * C.n_cols);
   arma::cube spObj(n,R.n_cols * C.n_cols,2);
   arma::vec pmu = pmur.t();
-  arma::mat pr = 1.2*pR;
+  arma::mat fixpR(arma::size(R), arma::fill::eye);
+  arma::mat pr = 1.5*fixpR + pR;
   for(int ii = 0; ii < nsim; ii++){
     if (ii % 2 == 0) Rcpp::checkUserInterrupt();
     Zsim = rmvNorm(n,pmu,pR);
@@ -654,7 +655,8 @@ double fy_aCDM_IS(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apa
   arma::mat Eobj(n,nsim);
   arma::mat Zsim(n,R.n_cols);
   arma::vec pmu = pmur.t();
-  arma::mat pr = 1.2*pR;
+  arma::mat fixpR(arma::size(R), arma::fill::eye);
+  arma::mat pr = 1.5*fixpR + pR;
   for(int ii = 0; ii < nsim; ii++){
     if (ii % 2 == 0) Rcpp::checkUserInterrupt();
     Zsim = rmvNorm(n,pmu,pR);

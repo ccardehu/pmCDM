@@ -54,10 +54,11 @@ gapmCDM <- function(data,q,control = list(), start.par = NULL, ...){
 
   if(!is.null(control$seed)) set.seed(control$seed)
   out <- gapmCDM_fit_rcpp(Y = data[],A = pp$A[],C = pp$C[],D = pp$D[],mu = pp$mu[],R = pp$R[], Z = zn[], control = control)
-  rownames(out$A) <- rownames(out$C) <- colnames(data)
-  colnames(out$A) <- colnames(out$R) <- rownames(out$R) <- names(out$mu) <- paste0("Z",1:q)
+  colnames(out$PI) <- rownames(out$A) <- rownames(out$C) <- colnames(data)
+  colnames(out$Z) <- colnames(out$A) <- colnames(out$R) <- rownames(out$R) <- names(out$mu) <- paste0("Z",1:q)
+  colnames(out$U) <- paste0("U",1:q)
   if(control$return.trace){
-    colnames(out$cdllk.trace) <- c("fyz","fz")
+    colnames(out$cdllk.trace) <- c("fz","fyz")
     Anames <- paste0("A",apply(expand.grid(paste0("j",1:p),paste0("k",1:q)),1,paste,collapse = "."))
     Cnames <- paste0("C",apply(expand.grid(apply(expand.grid(paste0("j",1:p),paste0("r",1:ncol(out$C))),1,paste,collapse = "."), paste0("k",1:q)),1,paste,collapse = "."))
     Mnames <- paste0("mu",1:q)
@@ -393,10 +394,12 @@ apmCDM <- function(data, q, Qmatrix, control = list(), start.par = NULL, ...){
 
   if(!is.null(control$seed)) set.seed(control$seed)
   out <- apmCDM_fit_rcpp(Y = data[], G = pp$G[], Qmatrix = Qmatrix[], Apat = Apat[], mu = pp$mu[], R = pp$R[], Z= zn[], control = control)
-  rownames(out$G) <- colnames(data)
+  colnames(out$PI) <- rownames(out$G) <- colnames(data)
   colnames(out$G) <- c("(Intercept)",paste0("Z",1:q))
+  colnames(out$Z) <- paste0("Z",1:q)
+  colnames(out$U) <- paste0("U",1:q)
   if(control$return.trace){
-    colnames(out$cdllk.trace) <- c("fyz","fz")
+    colnames(out$cdllk.trace) <- c("fz","fyz")
     Gnames <- paste0("G",apply(expand.grid(paste0("j",1:p),paste0("k",0:q)),1,paste,collapse = "."))
     Gnames <- Gnames[which(cbind(1,Qmatrix) != 0)]
     Mnames <- paste0("mu",1:q)

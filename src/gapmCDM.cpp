@@ -57,6 +57,7 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
   const bool verbose = control["verbose"];
   const bool stopFLAG = control["stop.atconv"];
   const bool traceFLAG = control["return.trace"];
+  const bool corFLAG = control["cor.R"];
   const std::string sampler = Rcpp::as<std::string>(control["sampler"]);
   const std::string basis = Rcpp::as<std::string>(control["basis"]);
   arma::vec knots = control["knots"];
@@ -129,7 +130,7 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
       Cn = D2C(Dn);
     }
     // arma::vec Mn = newM(mu,R,Z,ssAC/n);
-    arma::mat Ln = newL(mu,L,Z,ssAC/n,true);
+    arma::mat Ln = newL(mu,L,Z,ssAC/n,corFLAG);
     arma::mat Zn(arma::size(Z));
     if(sampler == "ULA"){
       Zn = newZ_ULA(Y,PI,Z,A,C,mu,R,spD,ssZ,knots,degree);
@@ -145,6 +146,54 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
     L = Ln;
     R = Ln*Ln.t();
     Z = Zn;
+
+    for(int t1 = window - 1; t1 > 0; t1--){
+      theta.row(t1) = theta.row(t1 - 1);
+    }
+    arma::rowvec ai = arma::vectorise(A).t();
+    arma::rowvec ci = arma::vectorise(C).t();
+    arma::rowvec mi = mu.t();
+    arma::rowvec ri = R(Rld).t();
+    arma::rowvec input = arma::join_rows(ai,ci,mi,ri);
+    theta.row(0) = input;
+    arma::mat dtheta = arma::diff(theta,1,0);
+    double maxvalue = arma::max(arma::abs(arma::vectorise(dtheta)));
+
+    if(iter % 10 == 0){
+      patrace.row(iter/10-1) = input;
+      double fzll = arma::accu(fz(Z,mu,R));
+      lltrace(iter/10-1,0) = fzll;
+      double fyzll = arma::accu(fyz(Y,PI));
+      lltrace(iter/10-1,1) = fyzll;
+      double cdll = fyzll + fzll;
+      artrace(iter/10-1) = ar/(n*iter);
+
+      if(verbose){
+        if(iter >= burnin){
+          if(sampler == "ULA"){
+            Rcpp::Rcout << "\r Iteration: " << std::setw(5) << iter << " (estimation phase, CD-llk: " << std::to_string(cdll) <<
+              ", max (abs) change: " << std::to_string(maxvalue) << ")";
+          } else {
+            Rcpp::Rcout << "\r Iteration: " << std::setw(5) << iter << " (estimation phase, CD-llk: " << std::to_string(cdll) <<
+              ", max (abs) change: " << std::to_string(maxvalue) << ", AR (" << sampler << "): " << std::to_string(ar/(n*iter)) << ")";
+          }
+        } else {
+          if(sampler == "ULA"){
+            Rcpp::Rcout << "\r Iteration: " << std::setw(5) << iter << " (burn-in phase, CD-llk: " << std::to_string(cdll) <<
+              ", max (abs) change: " << std::to_string(maxvalue) << ")";
+          } else {
+            Rcpp::Rcout << "\r Iteration: " << std::setw(5) << iter << " (burn-in phase, CD-llk: " << std::to_string(cdll) <<
+              ", max (abs) change: " << std::to_string(maxvalue) << ", AR (" << sampler << "): " << std::to_string(ar/(n*iter)) << ")";
+          }
+        }
+      }
+
+      if(stopFLAG & (maxvalue < epsStop)) {
+        iter++;
+        break;
+      }
+    }
+
     if(iter >= burnin){
       Aout += A;
       Cout += C;
@@ -154,41 +203,6 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
       Zout += Z;
       posR += arma::cov(Z);
       posMu += arma::mean(Z,0);
-      for(int t1 = window - 1; t1 > 0; t1--){
-        theta.row(t1) = theta.row(t1 - 1);
-      }
-      arma::rowvec ai = arma::vectorise(A).t();
-      arma::rowvec ci = arma::vectorise(C).t();
-      arma::rowvec mi = mu.t();
-      arma::rowvec ri = R(Rld).t();
-      arma::rowvec input = arma::join_rows(ai,ci,mi,ri);
-      theta.row(0) = input;
-      arma::mat dtheta = arma::diff(theta,1,0);
-      double maxvalue = arma::max(arma::abs(arma::vectorise(dtheta)));
-      if(iter % 10 == 0){
-        patrace.row(iter/10-1) = input;
-        double fzll = arma::accu(fz(Z,mu,R));
-        lltrace(iter/10-1,0) = fzll;
-        double fyzll = arma::accu(fyz(Y,PI));
-        lltrace(iter/10-1,1) = fyzll;
-        double cdll = fyzll + fzll;
-        artrace(iter/10-1) = ar/(n*iter);
-        if(verbose){
-          if(sampler == "ULA"){
-            Rcpp::Rcout << "\r Iteration: " << std::setw(5) << iter << " (estimation phase, CD-llk: " << std::to_string(cdll) <<
-              ", max (abs) change: " << std::to_string(maxvalue) << ")";
-          } else {
-            Rcpp::Rcout << "\r Iteration: " << std::setw(5) << iter << " (estimation phase, CD-llk: " << std::to_string(cdll) <<
-              ", max (abs) change: " << std::to_string(maxvalue) << ", AR (" << sampler << "): " << std::to_string(ar/(n*iter)) << ")";
-          }
-        }
-        if(stopFLAG & (maxvalue < epsStop)) {
-          iter++;
-          break;
-        }
-      }
-    } else {
-      if(verbose & (iter % 10 == 0)) Rcpp::Rcout << "\r Iteration: " << std::setw(5) << iter << " (burn-in phase)";
     }
     if(ii > tunelim) iter++;
   }
@@ -210,6 +224,10 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
     BIC = -2*llk + std::log(n)*Aout.n_elem;
     AIC = -2*llk + 2*Aout.n_elem;
   }
+  arma::mat Uout = Z2U(Zout);
+  spObj = SpU_bsp(Uout,knots,degree);
+  spM = spObj.slice(0);
+  PI = prob(Aout,Cout,spM);
 
   if(traceFLAG){
     return Rcpp::List::create(Rcpp::Named("A") = Aout,
@@ -217,6 +235,8 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
                               Rcpp::Named("mu") = Mout,
                               Rcpp::Named("R") = Rout,
                               Rcpp::Named("Z") = Zout,
+                              Rcpp::Named("U") = Uout,
+                              Rcpp::Named("PI") = PI,
                               Rcpp::Named("llk") = llk,
                               Rcpp::Named("BIC") = BIC,
                               Rcpp::Named("AIC") = AIC,
@@ -231,6 +251,8 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
                               Rcpp::Named("mu") = Mout,
                               Rcpp::Named("R") = Rout,
                               Rcpp::Named("Z") = Zout,
+                              Rcpp::Named("U") = Uout,
+                              Rcpp::Named("PI") = PI,
                               Rcpp::Named("llk") = llk,
                               Rcpp::Named("BIC") = BIC,
                               Rcpp::Named("AIC") = AIC,
@@ -410,6 +432,54 @@ Rcpp::List apmCDM_fit_rcpp(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma:
     L = Ln;
     R = Ln*Ln.t();
     Z = Zn;
+
+    for(int t1 = window - 1; t1 > 0; t1--){
+      theta.row(t1) = theta.row(t1 - 1);
+    }
+    arma::vec Gpar = G(iG);
+    arma::rowvec gi = Gpar.t();
+    arma::rowvec mi = mu.t();
+    arma::rowvec ri = R(Rld).t();
+    arma::rowvec input = arma::join_rows(gi,mi,ri);
+    theta.row(0) = input;
+    arma::mat dtheta = arma::diff(theta,1,0);
+    double maxvalue = arma::max(arma::abs(arma::vectorise(dtheta)));
+
+    if(iter % 10 == 0){
+      patrace.row(iter/10-1) = input;
+      double fzll = arma::accu(fz(Z,mu,R));
+      lltrace(iter/10-1,0) = fzll;
+      double fyzll = arma::accu(fyz(Y,PI));
+      lltrace(iter/10-1,1) = fyzll;
+      double cdll = fyzll + fzll;
+      artrace(iter/10-1) = ar/(n*iter);
+
+      if(verbose){
+        if(iter >= burnin){
+          if(sampler == "ULA"){
+            Rcpp::Rcout << "\r Iteration: " << std::setw(5) << iter << " (estimation phase, CD-llk: " << std::to_string(cdll) <<
+              ", max (abs) change: " << std::to_string(maxvalue) << ")";
+          } else {
+            Rcpp::Rcout << "\r Iteration: " << std::setw(5) << iter << " (estimation phase, CD-llk: " << std::to_string(cdll) <<
+              ", max (abs) change: " << std::to_string(maxvalue) << ", AR (" << sampler << "): " << std::to_string(ar/(n*iter)) << ")";
+          }
+        } else {
+          if(sampler == "ULA"){
+            Rcpp::Rcout << "\r Iteration: " << std::setw(5) << iter << " (burn-in phase, CD-llk: " << std::to_string(cdll) <<
+              ", max (abs) change: " << std::to_string(maxvalue) << ")";
+          } else {
+            Rcpp::Rcout << "\r Iteration: " << std::setw(5) << iter << " (burn-in phase, CD-llk: " << std::to_string(cdll) <<
+              ", max (abs) change: " << std::to_string(maxvalue) << ", AR (" << sampler << "): " << std::to_string(ar/(n*iter)) << ")";
+          }
+        }
+      }
+
+      if(stopFLAG & (maxvalue < epsStop)) {
+        iter++;
+        break;
+      }
+    }
+
     if(iter >= burnin){
       Gout += G;
       Mout += mu;
@@ -417,41 +487,6 @@ Rcpp::List apmCDM_fit_rcpp(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma:
       Zout += Z;
       posR += arma::cov(Z);
       posMu += arma::mean(Z,0);
-      for(int t1 = window - 1; t1 > 0; t1--){
-        theta.row(t1) = theta.row(t1 - 1);
-      }
-      arma::vec Gpar = G(iG);
-      arma::rowvec gi = Gpar.t();
-      arma::rowvec mi = mu.t();
-      arma::rowvec ri = R(Rld).t();
-      arma::rowvec input = arma::join_rows(gi,mi,ri);
-      theta.row(0) = input;
-      arma::mat dtheta = arma::diff(theta,1,0);
-      double maxvalue = arma::max(arma::abs(arma::vectorise(dtheta)));
-      if(iter % 10 == 0){
-        patrace.row(iter/10-1) = input;
-        double fzll = arma::accu(fz(Z,mu,R));
-        lltrace(iter/10-1,0) = fzll;
-        double fyzll = arma::accu(fyz(Y,PI));
-        lltrace(iter/10-1,1) = fyzll;
-        double cdll = fyzll + fzll;
-        artrace(iter/10-1) = ar/(n*iter);
-        if(verbose){
-          if(sampler == "ULA"){
-            Rcpp::Rcout << "\r Iteration: " << std::setw(5) << iter << " (estimation phase, CD-llk: " << std::to_string(cdll) <<
-              ", max (abs) change: " << std::to_string(maxvalue) << ")";
-          } else {
-            Rcpp::Rcout << "\r Iteration: " << std::setw(5) << iter << " (estimation phase, CD-llk: " << std::to_string(cdll) <<
-              ", max (abs) change: " << std::to_string(maxvalue) << ", AR: " << std::to_string(ar/(n*iter)) << ")";
-          }
-        }
-        if(stopFLAG & (maxvalue < epsStop)) {
-          iter++;
-          break;
-        }
-      }
-    } else {
-      if(verbose & (iter % 10 == 0)) Rcpp::Rcout << "\r Iteration: " << std::setw(5) << iter << " (burn-in phase)";
     }
     if(ii > tunelim) iter++;
   }
@@ -472,11 +507,16 @@ Rcpp::List apmCDM_fit_rcpp(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma:
     AIC = -2*llk + 2*tp;
   }
 
+  Rcpp::List aCDMlist = aCDM(Gout, Qmatrix, Zout, Apat);
+  PI = Rcpp::as<arma::mat>(aCDMlist["PI"]);
+
   if(traceFLAG){
     return Rcpp::List::create(Rcpp::Named("G") = Gout,
                               Rcpp::Named("mu") = Mout,
                               Rcpp::Named("R") = Rout,
                               Rcpp::Named("Z") = Zout,
+                              Rcpp::Named("U") = Z2U(Zout),
+                              Rcpp::Named("PI") = PI,
                               Rcpp::Named("llk") = llk,
                               Rcpp::Named("BIC") = BIC,
                               Rcpp::Named("AIC") = AIC,
@@ -490,6 +530,8 @@ Rcpp::List apmCDM_fit_rcpp(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma:
                               Rcpp::Named("mu") = Mout,
                               Rcpp::Named("R") = Rout,
                               Rcpp::Named("Z") = Zout,
+                              Rcpp::Named("U") = Z2U(Zout),
+                              Rcpp::Named("PI") = PI,
                               Rcpp::Named("llk") = llk,
                               Rcpp::Named("BIC") = BIC,
                               Rcpp::Named("AIC") = AIC,
