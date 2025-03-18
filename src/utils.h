@@ -1,7 +1,7 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-double dCop(arma::vec& z, arma::mat& R, const bool log = true);
+// double dCop(arma::vec& z, arma::mat& R, const bool log = true);
 
 arma::mat Z2U(arma::mat& Z);
 
@@ -21,17 +21,19 @@ double dmvNorm(arma::vec& y, arma::vec& mu, arma::mat& R, const bool log = true)
 
 arma::mat dmvStNorm(arma::mat& Z);
 
-double UiAk(arma::rowvec& Ui, arma::rowvec& Ak);
+// double UiAk(arma::rowvec& Ui, arma::rowvec& Ak);
 
-arma::rowvec dUiAk(arma::rowvec& Ui, arma::rowvec& Ak);
+arma::mat UA(arma::mat& U, arma::mat& Apat);
+
+// arma::rowvec dUiAk(arma::rowvec& Ui, arma::rowvec& Ak);
+
+arma::mat dUA(arma::mat& U, arma::rowvec& Ak);
 
 Rcpp::List genpar(const int p, const int q,
                   const double probSparse,
                   arma::vec& knots, const int degree, const std::string& basis);
 
 arma::mat genpar_aCDM(arma::mat& Qmatrix, const double maxG0);
-
-// Rcpp::List SpU(arma::mat& U, arma::vec& knots, const unsigned int deg, const std::string& basis);
 
 arma::cube SpU_isp(arma::mat& U, arma::vec& knots, const unsigned int deg);
 
@@ -58,15 +60,19 @@ arma::mat d1CdD(arma::vec& d);
 Rcpp::List d1AD(arma::mat& Y, arma::mat& PI, arma::mat& ism,
                 arma::mat& A, arma::cube& D);
 
-Rcpp::List d2AC(arma::mat& YmPI, arma::mat& ism,
-                arma::mat& A, arma::cube& C);
+// Rcpp::List d2AC(arma::mat& YmPI, arma::mat& ism,
+//                 arma::mat& A, arma::cube& C);
 
 arma::cube d1PIdZ(arma::mat& A, arma::cube& C, arma::mat& isd, arma::mat& Z);
+
+arma::cube d1PIdZ_aCDM(arma::mat& G, arma::mat& Qmatrix, arma::mat& Z, arma::mat& Apat);
 
 arma::mat d1PostZ(arma::mat& YmPI, arma::mat& Z, arma::mat& isd,
                  arma::mat& A, arma::cube& C, arma::vec& mu, arma::mat& R);
 
-Rcpp::List aCDM(arma::mat& G, arma::mat& Qmatrix, arma::mat& Z, arma::mat& Apat);
+// Rcpp::List aCDM(arma::mat& G, arma::mat& Qmatrix, arma::mat& Z, arma::mat& Apat);
+
+arma::mat prob_aCDM(arma::mat& G, arma::mat& U, arma::mat& Apat);
 
 double fy_aCDM(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apat,
                arma::vec& mu, arma::mat& R, Rcpp::List& control);
@@ -75,8 +81,14 @@ double fy_aCDM_IS(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apa
                   arma::vec& mu, arma::mat& R,
                   arma::rowvec& pmur, arma::mat& pR, Rcpp::List& control);
 
-Rcpp::List d1G(arma::mat& Y, Rcpp::List aCDMlist);
+// Rcpp::List d1G(arma::mat& Y, Rcpp::List aCDMlist);
 
-arma::mat d1PostZ_aCDM(arma::mat& Y, arma::mat& Z, Rcpp::List aCDMlist, arma::vec& mu, arma::mat& R);
+Rcpp::List d1G(arma::mat& Y, arma::mat& U, arma::mat& PI, arma::mat& G,
+               arma::mat& Apat, arma::mat& Qmatrix);
+
+// arma::mat d1PostZ_aCDM(arma::mat& Y, arma::mat& Z, Rcpp::List aCDMlist, arma::vec& mu, arma::mat& R);
+
+arma::mat d1PostZ_aCDM(arma::mat& Y, arma::mat& PI, arma::mat& Z, arma::mat& Qmatrix, arma::mat& Apat,
+                       arma::mat& G, arma::vec& mu, arma::mat& R);
 
 #endif

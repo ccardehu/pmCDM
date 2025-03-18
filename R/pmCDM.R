@@ -333,7 +333,7 @@ gapmCDM_mllkCV <- function(Ytrain, Ytest, q, control = list(), ...){
   if(!is.null(control$seed)) set.seed(control$seed)
   fit1 = gapmCDM_fit_rcpp(Y = Ytrain[],A = ppD1$A[],C = ppD1$C[],D = ppD1$D[],mu = ppD1$mu[],R = ppD1$R[], Z = zn[], control = control)
   if(control$return.trace){
-    colnames(fit1$cdllk.trace) <- c("fyz","fz")
+    colnames(fit1$cdllk.trace) <- c("fz","fyz")
   }
   if(control$verbose) cat(paste0("\n [ Testing data ]"))
   # testmllk = fy_gapmCDM(Ytest[],A = fit1$A[],C = fit1$C[],mu = fit1$mu[],R = fit1$R[], control = control)
@@ -551,7 +551,7 @@ apmCDM_mllkCV <- function(Ytrain, Ytest, q, Qmatrix, control = list(), ...){
   if(!is.null(control$seed)) set.seed(control$seed)
   fit1 = apmCDM_fit_rcpp(Y = Ytrain[], G = ppD1$G[], Qmatrix = Qmatrix[], Apat = Apat[], mu = ppD1$mu[], R = ppD1$R[], Z= zn[], control = control)
   if(control$return.trace){
-    colnames(fit1$cdllk.trace) <- c("fyz","fz")
+    colnames(fit1$cdllk.trace) <- c("fz","fyz")
   }
   # testmllk = fy_aCDM(Ytest[], G = fit1$G[], Qmatrix = Qmatrix[], Apat = Apat[], mu = fit1$mu[], R = fit1$R[], control = control)
   if(control$verbose) cat(paste0("\n [ Testing data ]"))

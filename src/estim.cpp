@@ -8,6 +8,7 @@ using namespace arma;
 
 Rcpp::List newAC_PGD(Rcpp::List& d1AC, arma::mat& Aold, arma::cube& Cold, double ss){
    arma::vec d1ac = d1AC["grad"];
+   // arma::mat d2ac = d1AC["ieim"];
    arma::umat iA = d1AC["iA"];
    arma::ucube iC = d1AC["iC"];
    arma::mat Anew(arma::size(Aold));
@@ -16,11 +17,13 @@ Rcpp::List newAC_PGD(Rcpp::List& d1AC, arma::mat& Aold, arma::cube& Cold, double
    const int q = Cold.n_slices;
    for(int i = 0; i < p; i ++){
       arma::uvec idA = iA.row(i).t();
+      // arma::vec tA = Aold.row(i).t() + ss*d2ac(idA,idA)*d1ac(idA);
       arma::vec tA = Aold.row(i).t() + ss*d1ac(idA);
       Anew.row(i) = ProxD(tA).t();
       for(int j = 0; j < q; j++){
          if(Aold(i,j) != 0){
             arma::uvec idC = iC.slice(j).row(i).t();
+            // arma::vec tC = Cold.slice(j).row(i).t() + ss*d2ac(idC,idC)*d1ac(idC);
             arma::vec tC = Cold.slice(j).row(i).t() + ss*d1ac(idC);
             Cnew.slice(j).row(i) = ProxD(tC).t();
          } else continue;
@@ -32,6 +35,7 @@ Rcpp::List newAC_PGD(Rcpp::List& d1AC, arma::mat& Aold, arma::cube& Cold, double
 
 Rcpp::List newAD_PGD(Rcpp::List& d1AD,arma::mat& Aold, arma::cube& Dold, double ss){
    arma::vec d1ad = d1AD["grad"];
+   // arma::mat d2ad = d1AD["ieim"];
    arma::umat iA = d1AD["iA"];
    arma::ucube iD = d1AD["iD"];
    arma::mat Anew(arma::size(Aold));
@@ -40,11 +44,13 @@ Rcpp::List newAD_PGD(Rcpp::List& d1AD,arma::mat& Aold, arma::cube& Dold, double 
    const int q = Dold.n_slices;
    for(int i = 0; i < p; i ++){
       arma::uvec idA = iA.row(i).t();
+      // arma::vec tA = Aold.row(i).t() + ss*d2ad(idA,idA)*d1ad(idA);
       arma::vec tA = Aold.row(i).t() + ss*d1ad(idA);
       Anew.row(i) = ProxD(tA).t();
       for(int j = 0; j < q; j++){
          if(Aold(i,j) != 0){
             arma::uvec idD = iD.slice(j).row(i).t();
+            // arma::vec tD = Dold.slice(j).row(i).t() + ss*d2ad(idD,idD)*d1ad(idD);
             arma::vec tD = Dold.slice(j).row(i).t() + ss*d1ad(idD);
             Dnew.slice(j).row(i) = tD.t();
          } else continue;
@@ -72,7 +78,7 @@ Rcpp::List newAC_MD(Rcpp::List& d1AC,arma::mat& Aold, arma::cube& Cold, double s
             arma::uvec idC = iC.slice(j).row(i).t();
             arma::vec tC = Cold.slice(j).row(i).t() % arma::exp(ss*d1ac(idC));
             const double l1C = arma::sum(arma::abs(tC));
-            Cnew.slice(j).row(i) = tC.t() / l1C;
+            Cnew.slice(j).row(i) = arma::clamp(tC.t() / l1C, arma::datum::eps, 1.0-arma::datum::eps);
          } else continue;
       }
    }
@@ -82,6 +88,7 @@ Rcpp::List newAC_MD(Rcpp::List& d1AC,arma::mat& Aold, arma::cube& Cold, double s
 
 Rcpp::List newAD_MD(Rcpp::List& d1AD,arma::mat& Aold, arma::cube& Dold, double ss){
    arma::vec d1ad = d1AD["grad"];
+   // arma::mat d2ad = d1AD["ieim"];
    arma::umat iA = d1AD["iA"];
    arma::ucube iD = d1AD["iD"];
    arma::mat Anew(arma::size(Aold));
@@ -96,6 +103,7 @@ Rcpp::List newAD_MD(Rcpp::List& d1AD,arma::mat& Aold, arma::cube& Dold, double s
       for(int j = 0; j < q; j++){
          if(Aold(i,j) != 0){
             arma::uvec idD = iD.slice(j).row(i).t();
+            // arma::vec tD = Dold.slice(j).row(i).t() + ss*d2ad(idD,idD)*d1ad(idD);
             arma::vec tD = Dold.slice(j).row(i).t() + ss*d1ad(idD);
             Dnew.slice(j).row(i) = tD.t();
          } else continue;
@@ -224,7 +232,6 @@ arma::mat newZ_RWMH(arma::mat& Y, arma::mat& PI,arma::mat& Z, arma::mat& A, arma
    arma::mat spM(n,q*np);
    arma::cube spObj(n,q*np,2);
 
-   // arma::vec mu(q);
    arma::mat hD = h*arma::eye(arma::size(R));
    arma::mat rE = rmvNorm(n,mu,hD);
    arma::mat Zn = Z + rE;
@@ -276,28 +283,66 @@ arma::mat newG_MD(Rcpp::List& d1G, arma::mat& Gold, double ss){
    return(Gnew);
 }
 
-arma::mat newZ_ULA_aCDM(arma::mat& Y, arma::mat& Z, Rcpp::List aCDMlist,
-                        arma::vec& mu, arma::mat& R, double& h){
+// arma::mat newZ_ULA_aCDM(arma::mat& Y, arma::mat& Z, Rcpp::List aCDMlist,
+//                         arma::vec& mu, arma::mat& R, double& h){
+//    const int n = Y.n_rows;
+//    const int q = mu.n_elem;
+//    arma::mat gpz = d1PostZ_aCDM(Y, Z, aCDMlist, mu,R);
+//    arma::mat rE = rmvStNorm(n,q);
+//    arma::mat Zn = Z + h*gpz + std::sqrt(2*h)*rE;
+//    return(Zn);
+// }
+
+arma::mat newZ_ULA_aCDM(arma::mat& Y, arma::mat& PI, arma::mat& Z, arma::mat& Qmatrix, arma::mat& Apat,
+                            arma::mat& G, arma::vec& mu, arma::mat& R, double& h){
    const int n = Y.n_rows;
    const int q = mu.n_elem;
-   arma::mat gpz = d1PostZ_aCDM(Y, Z, aCDMlist, mu,R);
+   arma::mat gpz = d1PostZ_aCDM(Y,PI,Z,Qmatrix,Apat,G,mu,R);
    arma::mat rE = rmvStNorm(n,q);
    arma::mat Zn = Z + h*gpz + std::sqrt(2*h)*rE;
    return(Zn);
 }
 
-arma::mat newZ_RWMH_aCDM(arma::mat& Y, arma::mat& Z, Rcpp::List aCDMlist,
-                         arma::mat& G, arma::mat& Qmatrix, arma::mat& Apat,
+// arma::mat newZ_RWMH_aCDM(arma::mat& Y, arma::mat& Z, Rcpp::List aCDMlist,
+//                          arma::mat& G, arma::mat& Qmatrix, arma::mat& Apat,
+//                          arma::vec& mu, arma::mat& R, const double h, double& ar){
+//    const int n = Y.n_rows;
+//    arma::mat PI = Rcpp::as<arma::mat>(aCDMlist["PI"]);
+//
+//    arma::mat hD = h*arma::eye(arma::size(R));
+//    arma::mat rE = rmvNorm(n,mu,hD);
+//    arma::mat Zn = Z + rE;
+//
+//    Rcpp::List aCDMlistNew = aCDM(G,Qmatrix,Zn,Apat);
+//    arma::mat PIn = Rcpp::as<arma::mat>(aCDMlistNew["PI"]);
+//    arma::vec pdo = arma::sum(fyz(Y,PI),1) + arma::sum(fz(Z,mu,R),1);
+//    arma::vec pdn = arma::sum(fyz(Y,PIn),1) + arma::sum(fz(Zn,mu,R),1);
+//
+//    arma::mat Zout(arma::size(Z));
+//    for(int i = 0; i < n; i++){
+//       double rej = R::runif(0,1);
+//       double com = std::min(1.0,std::exp(pdn(i) - pdo(i)));
+//       if(rej < com){
+//          Zout.row(i) = Zn.row(i);
+//          ar++;
+//       } else {
+//          Zout.row(i) = Z.row(i);
+//       }
+//    }
+//    return Zout;
+// }
+
+arma::mat newZ_RWMH_aCDM(arma::mat& Y, arma::mat& PI, arma::mat& Z,
+                         arma::mat& G, arma::mat& Apat,
                          arma::vec& mu, arma::mat& R, const double h, double& ar){
    const int n = Y.n_rows;
-   arma::mat PI = Rcpp::as<arma::mat>(aCDMlist["PI"]);
 
    arma::mat hD = h*arma::eye(arma::size(R));
    arma::mat rE = rmvNorm(n,mu,hD);
    arma::mat Zn = Z + rE;
+   arma::mat Un = Z2U(Zn);
 
-   Rcpp::List aCDMlistNew = aCDM(G,Qmatrix,Zn,Apat);
-   arma::mat PIn = Rcpp::as<arma::mat>(aCDMlistNew["PI"]);
+   arma::mat PIn = prob_aCDM(G,Un,Apat);
    arma::vec pdo = arma::sum(fyz(Y,PI),1) + arma::sum(fz(Z,mu,R),1);
    arma::vec pdn = arma::sum(fyz(Y,PIn),1) + arma::sum(fz(Zn,mu,R),1);
 
@@ -315,23 +360,56 @@ arma::mat newZ_RWMH_aCDM(arma::mat& Y, arma::mat& Z, Rcpp::List aCDMlist,
    return Zout;
 }
 
-arma::mat newZ_MALA_aCDM(arma::mat& Y, arma::mat& Z, Rcpp::List aCDMlist,
-                         arma::mat& G, arma::mat& Qmatrix, arma::mat& Apat,
-                         arma::vec& mu, arma::mat& R, double& h, double& ar){
+// arma::mat newZ_MALA_aCDM(arma::mat& Y, arma::mat& Z, Rcpp::List aCDMlist,
+//                          arma::mat& G, arma::mat& Qmatrix, arma::mat& Apat,
+//                          arma::vec& mu, arma::mat& R, double& h, double& ar){
+//    const int n = Y.n_rows;
+//    const int q = mu.n_elem;
+//    arma::mat PI = Rcpp::as<arma::mat>(aCDMlist["PI"]);
+//
+//    arma::mat gpz = d1PostZ_aCDM(Y, Z, aCDMlist, mu,R);
+//    arma::mat rE = rmvStNorm(n,q);
+//    arma::mat Zn = Z + h*gpz + std::sqrt(2*h)*rE;
+//
+//    Rcpp::List aCDMlistNew = aCDM(G,Qmatrix,Zn,Apat);
+//    arma::mat PIn = Rcpp::as<arma::mat>(aCDMlistNew["PI"]);
+//    arma::vec pdo = arma::sum(fyz(Y,PI),1) + arma::sum(fz(Z,mu,R),1);
+//    arma::vec pdn = arma::sum(fyz(Y,PIn),1) + arma::sum(fz(Zn,mu,R),1);
+//
+//    arma::mat gpzn = d1PostZ_aCDM(Y,Zn,aCDMlistNew,mu,R);
+//    arma::vec qo = -1/(4*h) * arma::pow(arma::vecnorm(Z - Zn - h*gpzn,2,1),2);
+//    arma::vec qn = -1/(4*h) * arma::pow(arma::vecnorm(Zn - Z - h*gpz,2,1),2);
+//    arma::vec rejV = pdn + qo - pdo - qn;
+//
+//    arma::mat Zout(arma::size(Z));
+//    for(int i = 0; i < n; i++){
+//       double rej = R::runif(0,1);
+//       double com = std::min(1.0, std::exp(rejV(i)));
+//       if(rej < com){
+//          Zout.row(i) = Zn.row(i);
+//          ar++;
+//       } else {
+//          Zout.row(i) = Z.row(i);
+//       }
+//    }
+//    return Zout;
+// }
+
+arma::mat newZ_MALA_aCDM(arma::mat& Y, arma::mat& PI, arma::mat& Z, arma::mat& Qmatrix, arma::mat& Apat,
+                             arma::mat& G, arma::vec& mu, arma::mat& R, double& h, double& ar){
    const int n = Y.n_rows;
    const int q = mu.n_elem;
-   arma::mat PI = Rcpp::as<arma::mat>(aCDMlist["PI"]);
 
-   arma::mat gpz = d1PostZ_aCDM(Y, Z, aCDMlist, mu,R);
+   arma::mat gpz = d1PostZ_aCDM(Y,PI,Z,Qmatrix,Apat,G,mu,R);
    arma::mat rE = rmvStNorm(n,q);
    arma::mat Zn = Z + h*gpz + std::sqrt(2*h)*rE;
+   arma::mat Un = Z2U(Zn);
 
-   Rcpp::List aCDMlistNew = aCDM(G,Qmatrix,Zn,Apat);
-   arma::mat PIn = Rcpp::as<arma::mat>(aCDMlistNew["PI"]);
+   arma::mat PIn = prob_aCDM(G,Un,Apat);
    arma::vec pdo = arma::sum(fyz(Y,PI),1) + arma::sum(fz(Z,mu,R),1);
    arma::vec pdn = arma::sum(fyz(Y,PIn),1) + arma::sum(fz(Zn,mu,R),1);
 
-   arma::mat gpzn = d1PostZ_aCDM(Y,Zn,aCDMlistNew,mu,R);
+   arma::mat gpzn = d1PostZ_aCDM(Y,PIn,Zn,Qmatrix,Apat,G,mu,R);
    arma::vec qo = -1/(4*h) * arma::pow(arma::vecnorm(Z - Zn - h*gpzn,2,1),2);
    arma::vec qn = -1/(4*h) * arma::pow(arma::vecnorm(Zn - Z - h*gpz,2,1),2);
    arma::vec rejV = pdn + qo - pdo - qn;

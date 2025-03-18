@@ -51,7 +51,6 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
   const int tunelim = control["tune.lim"];
   const int window = control["window"];
   const unsigned int degree = control["degree"];
-  const double h = control["h"];
   const double epsStop = control["stop.eps"];
   const double epsTune = control["tune.eps"];
   const bool verbose = control["verbose"];
@@ -60,6 +59,8 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
   const bool corFLAG = control["cor.R"];
   const std::string sampler = Rcpp::as<std::string>(control["sampler"]);
   const std::string basis = Rcpp::as<std::string>(control["basis"]);
+  double h = control["h"];
+  double g = control["gamma"];
   arma::vec knots = control["knots"];
 
   const int n = Y.n_rows;
@@ -95,18 +96,19 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
     double ssAC;
     double ssZ;
     if(ii <= tunelim){
-      ssAC = 0.0 + epsTune ;
+      ssAC = epsTune ;
       if(verbose & (ii % 10 == 0)) Rcpp::Rcout << "\r Iteration: " << std::setw(5) << ii << " (tuning phase)";
       ar = 0 ;
-      ssZ = 0.0 + 1.0*h ;
+      ssZ = h ;
     } else {
-      ssAC = std::pow(iter,-.833) ;
+      // ssAC = g * std::pow(iter,-.833) ;
+      ssAC = g * std::pow(iter,-.51) ;
       if(sampler == "ULA"){
-        ssZ = 0.0 + 1.0 * h * std::pow(iter,-.333) ; // * std::pow(q,-.333)
+        ssZ = h * std::pow(iter,-.333) ; // * std::pow(q,-.333)
       } else if(sampler == "MALA"){
-        ssZ = 0.0 + 1.0 * h * std::pow(iter,-.333) ; // * std::pow(q,-.333)
+        ssZ = h * std::pow(q,-.333) ; // * std::pow(iter,-.333)
       } else if(sampler == "RWMH"){
-        ssZ = 1.0 * h * std::pow(q,-1) ;
+        ssZ = h * std::pow(q,-1) ;
       }
     }
     if(basis == "is"){
@@ -137,7 +139,7 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
     } else if(sampler == "MALA"){
       Zn = newZ_MALA(Y,PI,Z,A,C,mu,R,ar,spD,ssZ,knots,degree,basis);
     } else if(sampler == "RWMH"){
-      Zn = newZ_RWMH(Y,PI,Z,A,C,mu,R,ar,h,knots,degree,basis);
+      Zn = newZ_RWMH(Y,PI,Z,A,C,mu,R,ar,ssZ,knots,degree,basis);
     }
     A = An;
     C = Cn;
@@ -301,13 +303,15 @@ Rcpp::List gapmCDM_cv_rcpp(arma::mat& Ytrain, arma::mat& Ytest, arma::mat& A, ar
     arma::mat PI = prob(A,C,spM);
     arma::mat Zn(arma::size(Z));
     double ar = 0;
-    double ssZ = h * std::pow(ii,-.33) ;
     if(sampler == "ULA"){
+      double ssZ = h * std::pow(ii,-.33) ;
       Zn = newZ_ULA(Ytrain,PI,Z,A,C,mu,R,spD,ssZ,knots,degree);
     } else if(sampler == "MALA"){
+      double ssZ = h * std::pow(q,-.33) ;
       Zn = newZ_MALA(Ytrain,PI,Z,A,C,mu,R,ar,spD,ssZ,knots,degree,basis);
     } else if(sampler == "RWMH"){
-      Zn = newZ_RWMH(Ytrain,PI,Z,A,C,mu,R,ar,h,knots,degree,basis);
+      double ssZ = h * std::pow(q,-1) ;
+      Zn = newZ_RWMH(Ytrain,PI,Z,A,C,mu,R,ar,ssZ,knots,degree,basis);
     }
     piH += PI;
     Z = Zn;
@@ -336,8 +340,9 @@ Rcpp::List apmCDM_sim_rcpp(const int n,
   arma::mat Y(n,p);
   arma::mat Z = rmvNorm(n,mu,R);
   arma::mat U = Z2U(Z);
-  Rcpp::List aCDMlist = aCDM(G,Qmatrix,Z,Apat);
-  arma::mat PI = aCDMlist["PI"];
+  // Rcpp::List aCDMlist = aCDM(G,Qmatrix,Z,Apat);
+  // arma::mat PI = aCDMlist["PI"];
+  arma::mat PI = prob_aCDM(G,U,Apat);
   for(int j = 0; j < p; j++){
     for(int i = 0; i < n; i++){
       Y(i,j) = R::rbinom(1,PI(i,j));
@@ -357,7 +362,6 @@ Rcpp::List apmCDM_fit_rcpp(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma:
   const int iterlim = control["iter.lim"];
   const int tunelim = control["tune.lim"];
   const int window = control["window"];
-  const double h = control["h"];
   const double epsStop = control["stop.eps"];
   const double epsTune = control["tune.eps"];
   const bool verbose = control["verbose"];
@@ -365,6 +369,8 @@ Rcpp::List apmCDM_fit_rcpp(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma:
   const bool traceFLAG = control["return.trace"];
   const bool corFLAG = control["cor.R"];
   const std::string sampler = Rcpp::as<std::string>(control["sampler"]);
+  double h = control["h"];
+  double g = control["gamma"];
 
   const int n = Y.n_rows;
   const int p = Y.n_cols;
@@ -399,33 +405,33 @@ Rcpp::List apmCDM_fit_rcpp(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma:
     double ssG;
     double ssZ;
     if(ii <= tunelim){
-      ssG = 0.0 + epsTune ;
+      ssG = epsTune ;
       if(verbose & (ii % 10 == 0)) Rcpp::Rcout << "\r Iteration: " << std::setw(5) << ii << " (tuning phase)";
       ar = 0 ;
-      ssZ = 0.0 + 1.0*h ;
+      ssZ = h ;
     } else {
-      ssG = std::pow(iter,-.833) ;
+      // ssG = g * std::pow(iter,-.833) ;
+      ssG = g * std::pow(iter,-.51) ;
       if(sampler == "ULA"){
-        ssZ = 0.0 + 1.0 * h * std::pow(iter,-.333) ; // * std::pow(q,-.333)
+        ssZ = h * std::pow(iter,-.333) ; // * std::pow(q,-.333)
       } else if(sampler == "MALA"){
-        ssZ = 0.0 + 1.0 * h * std::pow(iter,-.333) ; // * std::pow(q,-.333)
+        ssZ = h * std::pow(q,-.333) ; // * std::pow(iter,-.333)
       } else if(sampler == "RWMH"){
-        ssZ = 1.0 * h * std::pow(q,-1) ;
+        ssZ = h * std::pow(q,-1) ;
       }
     }
-    Rcpp::List aCDMlist = aCDM(G, Qmatrix, Z, Apat);
-    PI = Rcpp::as<arma::mat>(aCDMlist["PI"]);
-    Rcpp::List dG = d1G(Y, aCDMlist);
+    PI = prob_aCDM(G,U,Apat);
+    Rcpp::List dG = d1G(Y,U,PI,G,Apat,Qmatrix);
     arma::mat Gn = newG_MD(dG,G,ssG/n);
     arma::vec Mn = newM(mu,R,Z,ssG/n);
     arma::mat Ln = newL(mu,L,Z,ssG/n,corFLAG);
     arma::mat Zn(arma::size(Z));
     if(sampler == "ULA"){
-      Zn = newZ_ULA_aCDM(Y,Z,aCDMlist,mu,R,ssZ);
+      Zn = newZ_ULA_aCDM(Y,PI,Z,Qmatrix,Apat,G,mu,R,ssZ);
     } else if(sampler == "MALA"){
-      Zn = newZ_MALA_aCDM(Y,Z,aCDMlist,G,Qmatrix,Apat,mu,R,ssZ,ar);
+      Zn = newZ_MALA_aCDM(Y,PI,Z,Qmatrix,Apat,G,mu,R,ssZ,ar);
     } else if(sampler == "RWMH"){
-      Zn = newZ_RWMH_aCDM(Y,Z,aCDMlist,G,Qmatrix,Apat,mu,R,h,ar);
+      Zn = newZ_RWMH_aCDM(Y,PI,Z,G,Apat,mu,R,ssZ,ar);
     }
     G = Gn;
     mu = Mn;
@@ -507,15 +513,15 @@ Rcpp::List apmCDM_fit_rcpp(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma:
     AIC = -2*llk + 2*tp;
   }
 
-  Rcpp::List aCDMlist = aCDM(Gout, Qmatrix, Zout, Apat);
-  PI = Rcpp::as<arma::mat>(aCDMlist["PI"]);
+  arma::mat Uout = Z2U(Zout);
+  PI = prob_aCDM(Gout,Uout,Apat);
 
   if(traceFLAG){
     return Rcpp::List::create(Rcpp::Named("G") = Gout,
                               Rcpp::Named("mu") = Mout,
                               Rcpp::Named("R") = Rout,
                               Rcpp::Named("Z") = Zout,
-                              Rcpp::Named("U") = Z2U(Zout),
+                              Rcpp::Named("U") = Uout,
                               Rcpp::Named("PI") = PI,
                               Rcpp::Named("llk") = llk,
                               Rcpp::Named("BIC") = BIC,
@@ -552,6 +558,7 @@ Rcpp::List apmCDM_cv_rcpp(arma::mat& Ytrain, arma::mat& Ytest, arma::mat& G,
 
   const int n = Ytrain.n_rows;
   const int p = Ytrain.n_cols;
+  const int q = mu.n_elem;
 
   arma::mat piH(n,p);
   arma::uvec isNA = arma::find_nan(Ytrain);
@@ -559,17 +566,19 @@ Rcpp::List apmCDM_cv_rcpp(arma::mat& Ytrain, arma::mat& Ytest, arma::mat& G,
 
   for(int ii = 1; ii <= nsim; ii++){
     if (ii % 2 == 0) Rcpp::checkUserInterrupt();
-    Rcpp::List aCDMlist = aCDM(G, Qmatrix, Z, Apat);
-    arma::mat PI = Rcpp::as<arma::mat>(aCDMlist["PI"]);
+    arma::mat U = Z2U(Z);
+    arma::mat PI = prob_aCDM(G,U,Apat);
     arma::mat Zn(arma::size(Z));
     double ar = 0;
-    double ssZ = h * std::pow(ii,-.33) ;
     if(sampler == "ULA"){
-      Zn = newZ_ULA_aCDM(Ytrain,Z,aCDMlist,mu,R,ssZ);
+      double ssZ = h * std::pow(ii,-.33) ;
+      Zn = newZ_ULA_aCDM(Ytrain,PI,Z,Qmatrix,Apat,G,mu,R,ssZ);
     } else if(sampler == "MALA"){
-      Zn = newZ_MALA_aCDM(Ytrain,Z,aCDMlist,G,Qmatrix,Apat,mu,R,ssZ,ar);
+      double ssZ = h * std::pow(q,-.33) ;
+      Zn = newZ_MALA_aCDM(Ytrain,PI,Z,Qmatrix,Apat,G,mu,R,ssZ,ar);
     } else if(sampler == "RWMH"){
-      Zn = newZ_RWMH_aCDM(Ytrain,Z,aCDMlist,G,Qmatrix,Apat,mu,R,h,ar);
+      double ssZ = h * std::pow(q,-1) ;
+      Zn = newZ_RWMH_aCDM(Ytrain,PI,Z,G,Apat,mu,R,ssZ,ar);
     }
     piH += PI;
     Z = Zn;
