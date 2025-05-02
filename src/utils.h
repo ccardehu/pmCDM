@@ -9,6 +9,8 @@ arma::cube D2C(arma::cube& D);
 
 arma::mat cumsumMat(arma::vec& expd);
 
+// arma::vec trunc(arma::vec& v);
+
 arma::vec ProxD(arma::vec& y);
 
 arma::mat ProxL(arma::mat& L);
@@ -21,11 +23,7 @@ double dmvNorm(arma::vec& y, arma::vec& mu, arma::mat& R, const bool log = true)
 
 arma::mat dmvStNorm(arma::mat& Z);
 
-// double UiAk(arma::rowvec& Ui, arma::rowvec& Ak);
-
 arma::mat UA(arma::mat& U, arma::mat& Apat);
-
-// arma::rowvec dUiAk(arma::rowvec& Ui, arma::rowvec& Ak);
 
 arma::mat dUA(arma::mat& U, arma::rowvec& Ak);
 
@@ -57,8 +55,12 @@ Rcpp::List d1AC(arma::mat& Y, arma::mat& PI, arma::mat& ism,
 
 arma::mat d1CdD(arma::vec& d);
 
+arma::mat d2CdD(arma::vec& d, arma::mat& dCdD);
+
+Rcpp::List dCdD(arma::vec& d);
+
 Rcpp::List d1AD(arma::mat& Y, arma::mat& PI, arma::mat& ism,
-                arma::mat& A, arma::cube& D);
+                arma::mat& A, arma::cube& D); // , arma::vec& gs, arma::vec& vs
 
 // Rcpp::List d2AC(arma::mat& YmPI, arma::mat& ism,
 //                 arma::mat& A, arma::cube& C);
@@ -70,8 +72,6 @@ arma::cube d1PIdZ_aCDM(arma::mat& G, arma::mat& Qmatrix, arma::mat& Z, arma::mat
 arma::mat d1PostZ(arma::mat& YmPI, arma::mat& Z, arma::mat& isd,
                  arma::mat& A, arma::cube& C, arma::vec& mu, arma::mat& R);
 
-// Rcpp::List aCDM(arma::mat& G, arma::mat& Qmatrix, arma::mat& Z, arma::mat& Apat);
-
 arma::mat prob_aCDM(arma::mat& G, arma::mat& U, arma::mat& Apat);
 
 double fy_aCDM(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apat,
@@ -81,12 +81,8 @@ double fy_aCDM_IS(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apa
                   arma::vec& mu, arma::mat& R,
                   arma::rowvec& pmur, arma::mat& pR, Rcpp::List& control);
 
-// Rcpp::List d1G(arma::mat& Y, Rcpp::List aCDMlist);
-
 Rcpp::List d1G(arma::mat& Y, arma::mat& U, arma::mat& PI, arma::mat& G,
                arma::mat& Apat, arma::mat& Qmatrix);
-
-// arma::mat d1PostZ_aCDM(arma::mat& Y, arma::mat& Z, Rcpp::List aCDMlist, arma::vec& mu, arma::mat& R);
 
 arma::mat d1PostZ_aCDM(arma::mat& Y, arma::mat& PI, arma::mat& Z, arma::mat& Qmatrix, arma::mat& Apat,
                        arma::mat& G, arma::vec& mu, arma::mat& R);

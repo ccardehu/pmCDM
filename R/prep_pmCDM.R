@@ -1,12 +1,12 @@
 pr_control_gaCDM <- function(control, ...){
 
-  con <- list("burn.in" = 3e3, "iter.lim" = 1e4, "tune.lim" = 2e3,
+  con <- list("burn.in" = 3e3, "iter.lim" = 1e4, "tune.lim" = 1e3,
               "stop.eps" = 1e-5, "gamma" = 1,
               "h" = 1e-2, "tune.eps" = 1, "return.trace" = F,
               "degree" = NULL, "knots" = seq(.1,.9,by = 0.1),"cor.R" = T,
               "nsim" = 1000, "verbose" = T, "seed" = NULL, "mu" = NULL, "R" = NULL,
               "start.zn" = "random", "sampler" = "ULA", "basis" = "pwl",
-              "window" = 10, "stop.atconv" = T)
+              "window" = 10, "stop.atconv" = T, "adam.b1" = .9, "adam.b2" = .999)
   control <- c(control, list(...))
   namC <- names(con)
   con[(namc <- names(control))] <- control
@@ -17,13 +17,13 @@ pr_control_gaCDM <- function(control, ...){
 
 pr_control_aCDM <- function(control, ...){
 
-  con <- list("burn.in" = 3e3, "iter.lim" = 1e4, "tune.lim" = 2e3,
+  con <- list("burn.in" = 3e3, "iter.lim" = 1e4, "tune.lim" = 5e2,
               "stop.eps" = 1e-5, "gamma" = 1,
               "h" = 1e-2, "tune.eps" = 1, "return.trace" = F,
               "max.G0" = 0.10, "cor.R" = T,
               "nsim" = 1000, "verbose" = T, "seed" = NULL, "mu" = NULL, "R" = NULL,
               "start.zn" = "random", "sampler" = "ULA",
-              "window" = 10, "stop.atconv" = T)
+              "window" = 10, "stop.atconv" = T, "adam.b1" = .9, "adam.b2" = .999)
   control <- c(control, list(...))
   namC <- names(con)
   con[(namc <- names(control))] <- control
