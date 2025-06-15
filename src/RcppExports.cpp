@@ -174,8 +174,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // fy_gapmCDM_IS
-double fy_gapmCDM_IS(arma::mat& Y, arma::mat& A, arma::cube& C, arma::vec& mu, arma::mat& R, arma::rowvec& pmur, arma::mat& pR, Rcpp::List& control);
-RcppExport SEXP _pmCDM_fy_gapmCDM_IS(SEXP YSEXP, SEXP ASEXP, SEXP CSEXP, SEXP muSEXP, SEXP RSEXP, SEXP pmurSEXP, SEXP pRSEXP, SEXP controlSEXP) {
+double fy_gapmCDM_IS(arma::mat& Y, arma::mat& A, arma::cube& C, arma::vec& mu, arma::mat& R, arma::mat& pM, arma::cube& pR, Rcpp::List& control);
+RcppExport SEXP _pmCDM_fy_gapmCDM_IS(SEXP YSEXP, SEXP ASEXP, SEXP CSEXP, SEXP muSEXP, SEXP RSEXP, SEXP pMSEXP, SEXP pRSEXP, SEXP controlSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -184,10 +184,10 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< arma::cube& >::type C(CSEXP);
     Rcpp::traits::input_parameter< arma::vec& >::type mu(muSEXP);
     Rcpp::traits::input_parameter< arma::mat& >::type R(RSEXP);
-    Rcpp::traits::input_parameter< arma::rowvec& >::type pmur(pmurSEXP);
-    Rcpp::traits::input_parameter< arma::mat& >::type pR(pRSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type pM(pMSEXP);
+    Rcpp::traits::input_parameter< arma::cube& >::type pR(pRSEXP);
     Rcpp::traits::input_parameter< Rcpp::List& >::type control(controlSEXP);
-    rcpp_result_gen = Rcpp::wrap(fy_gapmCDM_IS(Y, A, C, mu, R, pmur, pR, control));
+    rcpp_result_gen = Rcpp::wrap(fy_gapmCDM_IS(Y, A, C, mu, R, pM, pR, control));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -209,8 +209,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // fy_aCDM_IS
-double fy_aCDM_IS(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apat, arma::vec& mu, arma::mat& R, arma::rowvec& pmur, arma::mat& pR, Rcpp::List& control);
-RcppExport SEXP _pmCDM_fy_aCDM_IS(SEXP YSEXP, SEXP GSEXP, SEXP QmatrixSEXP, SEXP ApatSEXP, SEXP muSEXP, SEXP RSEXP, SEXP pmurSEXP, SEXP pRSEXP, SEXP controlSEXP) {
+double fy_aCDM_IS(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apat, arma::vec& mu, arma::mat& R, arma::mat& pM, arma::cube& pR, Rcpp::List& control);
+RcppExport SEXP _pmCDM_fy_aCDM_IS(SEXP YSEXP, SEXP GSEXP, SEXP QmatrixSEXP, SEXP ApatSEXP, SEXP muSEXP, SEXP RSEXP, SEXP pMSEXP, SEXP pRSEXP, SEXP controlSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -220,10 +220,10 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< arma::mat& >::type Apat(ApatSEXP);
     Rcpp::traits::input_parameter< arma::vec& >::type mu(muSEXP);
     Rcpp::traits::input_parameter< arma::mat& >::type R(RSEXP);
-    Rcpp::traits::input_parameter< arma::rowvec& >::type pmur(pmurSEXP);
-    Rcpp::traits::input_parameter< arma::mat& >::type pR(pRSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type pM(pMSEXP);
+    Rcpp::traits::input_parameter< arma::cube& >::type pR(pRSEXP);
     Rcpp::traits::input_parameter< Rcpp::List& >::type control(controlSEXP);
-    rcpp_result_gen = Rcpp::wrap(fy_aCDM_IS(Y, G, Qmatrix, Apat, mu, R, pmur, pR, control));
+    rcpp_result_gen = Rcpp::wrap(fy_aCDM_IS(Y, G, Qmatrix, Apat, mu, R, pM, pR, control));
     return rcpp_result_gen;
 END_RCPP
 }

@@ -1,21 +1,21 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-// double dCop(arma::vec& z, arma::mat& R, const bool log = true);
-
 arma::mat Z2U(arma::mat& Z);
 
 arma::cube D2C(arma::cube& D);
 
 arma::mat cumsumMat(arma::vec& expd);
 
-// arma::vec trunc(arma::vec& v);
-
 arma::vec ProxD(arma::vec& y);
 
 arma::mat ProxL(arma::mat& L);
 
+void cube2eye(arma::cube& C);
+
 arma::mat rmvNorm(const int n, arma::vec& mu, arma::mat& R);
+
+arma::mat rmvNorm_IS(arma::mat& posM, arma::cube& posR);
 
 arma::mat rmvStNorm(const int n, const int q);
 
@@ -43,27 +43,24 @@ arma::mat fyz(arma::mat& Y, arma::mat& PI);
 
 arma::mat fz(arma::mat& Z, arma::vec& mu, arma::mat& R);
 
+arma::mat fz_IS(arma::mat& Z, arma::mat& pM, arma::cube& pR);
+
 double fy_gapmCDM(arma::mat& Y, arma::mat& A, arma::cube& C,
                   arma::vec& mu, arma::mat& R, Rcpp::List& control);
 
 double fy_gapmCDM_IS(arma::mat& Y, arma::mat& A, arma::cube& C,
                      arma::vec& mu, arma::mat& R,
-                     arma::rowvec& pmur, arma::mat& pR, Rcpp::List& control);
+                     arma::mat& pM, arma::cube& pR, Rcpp::List& control);
 
 Rcpp::List d1AC(arma::mat& Y, arma::mat& PI, arma::mat& ism,
                 arma::mat& A, arma::cube& C);
 
 arma::mat d1CdD(arma::vec& d);
 
-arma::mat d2CdD(arma::vec& d, arma::mat& dCdD);
-
 Rcpp::List dCdD(arma::vec& d);
 
 Rcpp::List d1AD(arma::mat& Y, arma::mat& PI, arma::mat& ism,
                 arma::mat& A, arma::cube& D); // , arma::vec& gs, arma::vec& vs
-
-// Rcpp::List d2AC(arma::mat& YmPI, arma::mat& ism,
-//                 arma::mat& A, arma::cube& C);
 
 arma::cube d1PIdZ(arma::mat& A, arma::cube& C, arma::mat& isd, arma::mat& Z);
 
@@ -79,7 +76,7 @@ double fy_aCDM(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apat,
 
 double fy_aCDM_IS(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apat,
                   arma::vec& mu, arma::mat& R,
-                  arma::rowvec& pmur, arma::mat& pR, Rcpp::List& control);
+                  arma::mat& pM, arma::cube& pR, Rcpp::List& control);
 
 Rcpp::List d1G(arma::mat& Y, arma::mat& U, arma::mat& PI, arma::mat& G,
                arma::mat& Apat, arma::mat& Qmatrix);

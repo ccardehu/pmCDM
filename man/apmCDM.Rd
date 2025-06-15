@@ -2,7 +2,7 @@
 % Please edit documentation in R/pmCDM.R
 \name{apmCDM}
 \alias{apmCDM}
-\title{Fit an Partial-Mastery Additive Cognitive Diagnosis Model (PM-CDM).}
+\title{Fit an Partial-Mastery Additive Cognitive Diagnosis Model (PM-ACDM).}
 \usage{
 apmCDM(data, q, Qmatrix, control = list(), start.par = NULL, ...)
 }
@@ -34,7 +34,7 @@ A list with components:
 }
 }
 \description{
-Fit an Partial-Mastery Additive Cognitive Diagnosis Model (PM-CDM).
+Fit an Partial-Mastery Additive Cognitive Diagnosis Model (PM-ACDM).
 }
 \details{
 Test

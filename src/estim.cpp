@@ -90,8 +90,6 @@ Rcpp::List newAC_MD(Rcpp::List& d1AC,arma::mat& Aold, arma::cube& Cold, double s
 
 Rcpp::List newAD_MD(Rcpp::List& d1AD,arma::mat& Aold, arma::cube& Dold, double ss){ // , arma::vec& d2adV
    arma::vec d1ad = d1AD["gs"];
-   // arma::mat d2ad = d1AD["hs"];
-   // arma::vec d2adV = -arma::diagvec(d2ad);
    arma::umat iA = d1AD["iA"];
    arma::ucube iD = d1AD["iD"];
    arma::mat Anew(arma::size(Aold));
@@ -106,8 +104,36 @@ Rcpp::List newAD_MD(Rcpp::List& d1AD,arma::mat& Aold, arma::cube& Dold, double s
       for(int j = 0; j < q; j++){
          if(Aold(i,j) > std::sqrt(arma::datum::eps)){
             arma::uvec idD = iD.slice(j).row(i).t();
-            // arma::vec tD = Dold.slice(j).row(i).t() + ss*d1ad(idD)/(d2adV(idD) + std::pow(arma::datum::eps,0.5));
             arma::vec tD = Dold.slice(j).row(i).t() + ss*d1ad(idD);
+            Dnew.slice(j).row(i) = tD.t();
+         } else {
+            Dnew.slice(j).row(i) = Dold.slice(j).row(i);
+         }
+      }
+   }
+   return Rcpp::List::create(Rcpp::Named("A") = Anew,
+                             Rcpp::Named("D") = Dnew);
+}
+
+Rcpp::List newAD_MD_hess(Rcpp::List& d1AD,arma::mat& Aold, arma::cube& Dold, double ss){ // , arma::vec& d2adV
+   arma::vec d1ad = d1AD["gs"];
+   arma::mat d2ad = d1AD["hs"];
+   arma::vec d2adV = -arma::diagvec(d2ad);
+   arma::umat iA = d1AD["iA"];
+   arma::ucube iD = d1AD["iD"];
+   arma::mat Anew(arma::size(Aold));
+   arma::cube Dnew(arma::size(Dold));
+   const int p = Aold.n_rows;
+   const int q = Dold.n_slices;
+   for(int i = 0; i < p; i ++){
+      arma::uvec idA = iA.row(i).t();
+      arma::vec tA = Aold.row(i).t() % arma::exp(ss*d1ad(idA));
+      const double l1A = arma::sum(arma::abs(tA));
+      Anew.row(i) = arma::clamp(tA.t() / l1A, arma::datum::eps, 1.0-arma::datum::eps);
+      for(int j = 0; j < q; j++){
+         if(Aold(i,j) > std::sqrt(arma::datum::eps)){
+            arma::uvec idD = iD.slice(j).row(i).t();
+            arma::vec tD = Dold.slice(j).row(i).t() + ss*d1ad(idD)/(d2adV(idD) + std::pow(arma::datum::eps,0.5));
             Dnew.slice(j).row(i) = tD.t();
          } else {
             Dnew.slice(j).row(i) = Dold.slice(j).row(i);
@@ -201,6 +227,21 @@ arma::mat newL(arma::vec& mu, arma::mat& L, arma::mat& Z, double ss, bool cor){
       L = ProxL(L);
    }
    return(L);
+}
+
+Rcpp::List newpMR(arma::mat& Z, arma::mat& posM, arma::cube& posR, int iter){
+   const int n = Z.n_rows;
+   arma::mat posMo(posM);
+   arma::cube posRo(posR);
+   double t1 = 1.0/(iter + 1.0);
+   double t2 = iter/(iter + 1.0);
+   double t3 = iter/std::pow(iter + 1.0,2);
+   posMo = posM + t1*(Z-posM);
+   for(int i = 0; i < n; i++){
+      posRo.slice(i) = t2*posR.slice(i) + t3*((Z.row(i) - posM.row(i)).t()*(Z.row(i) - posM.row(i))); // - posR.slice(i)
+   }
+   return Rcpp::List::create(Rcpp::Named("posM") = posMo,
+                             Rcpp::Named("posR") = posRo);
 }
 
 arma::mat newZ_ULA(arma::mat& Y, arma::mat& PI,arma::mat& Z, arma::mat& A, arma::cube& C,

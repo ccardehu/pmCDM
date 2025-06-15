@@ -2,7 +2,7 @@
 % Please edit documentation in R/pmCDM.R
 \name{pmCDM.CV.error}
 \alias{pmCDM.CV.error}
-\title{Compare GaPM-CDM vs. aPM-CDM via negative cross-entropy error.}
+\title{Compare GaPM-CDM vs. PM-aCDM via negative cross-entropy error.}
 \usage{
 pmCDM.CV.error(
   Ytrain,
@@ -39,7 +39,7 @@ A list with components:
 }
 }
 \description{
-Compare GaPM-CDM vs. aPM-CDM via negative cross-entropy error.
+Compare GaPM-CDM vs. PM-aCDM via negative cross-entropy error.
 }
 \details{
 Define CV.error.

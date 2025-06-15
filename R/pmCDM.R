@@ -27,6 +27,7 @@ gapmCDM <- function(data,q,control = list(), start.par = NULL, ...){
   if(control$verbose) cat(" Model: Generalized Additive PM-CDM \n")
   control$sampler = match.arg(control$sampler, c("ULA","MALA","RWMH"))
   control$basis = match.arg(control$basis, c("is","bs","pwl"))
+  control$algorithm = match.arg(control$algorithm, c("GD","ADAM","mixed"))
   if(control$basis == "pwl" & is.null(control$degree)) control$degree = 1
   if(control$basis != "pwl" & is.null(control$degree)) control$degree = 2
   p = ncol(data)
@@ -54,10 +55,16 @@ gapmCDM <- function(data,q,control = list(), start.par = NULL, ...){
 
   if(!is.null(control$start.zn) & is.matrix(control$start.zn)){
     zn = control$start.zn
-  } else {
+  } else if(control$start.zn == "random") {
     if(control$verbose) cat(" Generating random starting values for latent variables ...")
     zn = mvtnorm::rmvnorm(nrow(data),mean = rep(0,q))
     if(control$verbose) cat("\r Generating random starting values for latent variables ... (Done!) \n")
+  } else if(control$start.zn == "fa") {
+    if(control$verbose) cat(" Generating starting values for latent variables via Factor Analysis ...")
+    tmp = suppressWarnings(psych::fa(r = data, nfactors = q, cor = "tet", fm = "ml", rotate = "oblimin"))
+    zn = tmp$scores
+    if(control$cor.R) pp$R = cor(zn) else pp$R = cov(zn)
+    if(control$verbose) cat("\r Generating starting values for latent variables via Factor Analysis ... (Done!) \n")
   }
 
   if(!is.null(control$seed)) set.seed(control$seed)
@@ -355,11 +362,11 @@ gapmCDM_mllkCV <- function(Ytrain, Ytest, q, control = list(), ...){
   if(control$verbose) cat(paste0("\n [ Testing data ]"))
   # testmllk = fy_gapmCDM(Ytest[],A = fit1$A[],C = fit1$C[],mu = fit1$mu[],R = fit1$R[], control = control)
   testmllk = fy_gapmCDM_IS(Ytest[],A = fit1$A[],C = fit1$C[],mu = fit1$mu[],R = fit1$R[],
-                           pmur = t(matrix(fit1$posMu[])), pR = fit1$posR[], control = control)
+                           pM = fit1$posMu[], pR = fit1$posR[], control = control)
   return(list(mllk.test = testmllk, mllk.train = fit1$llk, train.mod = fit1)) #
 }
 
-#' Fit an Partial-Mastery Additive Cognitive Diagnosis Model (PM-CDM).
+#' Fit an Partial-Mastery Additive Cognitive Diagnosis Model (PM-ACDM).
 #'
 #' @param data Matrix \code{(n x p)} with binary entries. Missing data should be coded as \code{NA}.
 #' @param q Number of latent variables.
@@ -435,7 +442,7 @@ apmCDM <- function(data, q, Qmatrix, control = list(), start.par = NULL, ...){
 }
 
 
-#' Simulate data from a Generalized Additive Partial Mastery Cognitive Diagnosis Model (GaPM-CDM).
+#' Simulate data from an Partial Mastery Additive Cognitive Diagnosis Model (PM-ACDM).
 #'
 #' @param n Number of simulated entries.
 #' @param p Number of observed (binary) variables.
@@ -483,7 +490,7 @@ apmCDM_sim <- function(n, p, q, Qmatrix, control = list(),
   return(out)
 }
 
-#' Compare GaPM-CDM vs. aPM-CDM via negative cross-entropy error.
+#' Compare GaPM-CDM vs. PM-aCDM via negative cross-entropy error.
 #'
 #' @param Ytrain Matrix with observed binary entries to train the model. Missing entries (\code{Ytest}) coded as \code{NA}.
 #' @param Ytest Matrix with observed binary entries to test the model. All entries are \code{NA} but the missing in \code{Ytrain}.
@@ -590,6 +597,6 @@ apmCDM_mllkCV <- function(Ytrain, Ytest, q, Qmatrix, control = list(), ...){
   if(control$verbose) cat(paste0("\n [ Testing data ]"))
   testmllk = fy_aCDM_IS(Ytest[],G = fit1$G[],Qmatrix = Qmatrix, Apat = Apat[],
                         mu = fit1$mu[],R = fit1$R[],
-                        pmur = t(matrix(fit1$posMu[])), pR = fit1$posR[], control = control)
+                        pM = fit1$posMu, pR = fit1$posR[], control = control)
   return(list(mllk.test = testmllk, mllk.train = fit1$llk, train.mod = fit1)) #
 }

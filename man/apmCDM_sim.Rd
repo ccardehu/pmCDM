@@ -2,7 +2,7 @@
 % Please edit documentation in R/pmCDM.R
 \name{apmCDM_sim}
 \alias{apmCDM_sim}
-\title{Simulate data from a Generalized Additive Partial Mastery Cognitive Diagnosis Model (GaPM-CDM).}
+\title{Simulate data from an Partial Mastery Additive Cognitive Diagnosis Model (PM-ACDM).}
 \usage{
 apmCDM_sim(n, p, q, Qmatrix, control = list(), start.par = NULL, ...)
 }
@@ -31,7 +31,7 @@ A list with components:
 }
 }
 \description{
-Simulate data from a Generalized Additive Partial Mastery Cognitive Diagnosis Model (GaPM-CDM).
+Simulate data from an Partial Mastery Additive Cognitive Diagnosis Model (PM-ACDM).
 }
 \details{
 Test
