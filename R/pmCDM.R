@@ -28,8 +28,8 @@ gapmCDM <- function(data,q,control = list(), start.par = NULL, ...){
   control$sampler = match.arg(control$sampler, c("ULA","MALA","RWMH"))
   control$basis = match.arg(control$basis, c("is","bs","pwl"))
   control$algorithm = match.arg(control$algorithm, c("GD","ADAM","mixed"))
-  if(control$basis == "pwl" & is.null(control$degree)) control$degree = 1
-  if(control$basis != "pwl" & is.null(control$degree)) control$degree = 2
+  if(is.null(control$degree) && control$basis == "pwl") control$degree = 1
+  if(is.null(control$degree) && control$basis != "pwl") control$degree = 2
   p = ncol(data)
   tp = length(control$knots) + control$degree
 
@@ -53,7 +53,7 @@ gapmCDM <- function(data,q,control = list(), start.par = NULL, ...){
     pp = pr_param_gaCDM(p,q,tp,F,control)
   }
 
-  if(!is.null(control$start.zn) & is.matrix(control$start.zn)){
+  if(!is.null(control$start.zn) && is.matrix(control$start.zn)){
     zn = control$start.zn
   } else if(control$start.zn == "random") {
     if(control$verbose) cat(" Generating random starting values for latent variables ...")
@@ -108,10 +108,10 @@ gapmCDM_sim <- function(n, p, q, control = list(),
                       start.par = NULL, ...){
   control = pr_controlsim_gaCDM(control,q,...)
   control$basis = match.arg(control$basis, c("is","bs","pwl"))
-  if(control$basis == "pwl" & is.null(control$degree)) control$degree = 1
-  if(control$basis != "pwl" & is.null(control$degree)) control$degree = 2
+  if(is.null(control$degree) && control$basis == "pwl") control$degree = 1
+  if(is.null(control$degree) && control$basis != "pwl") control$degree = 2
   tp = length(control$knots) + control$degree
-  if(!is.null(start.par) & !is.list(start.par) & (length(start.par) != 5))
+  if(!is.null(start.par) && !is.list(start.par) && (length(start.par) != 5))
     stop("Argument `start.par' needs to be a list with elements `A', `C', `D', `mu', and `R'.")
   if(!is.null(start.par)){
     pp = start.par
@@ -129,8 +129,8 @@ gapmCDM_sim <- function(n, p, q, control = list(),
   out$D <- pp$D
   out$mu <- pp$mu
   out$R <- pp$R
-  out$posMu <- colMeans(out$Z)
-  out$posR <- cov(out$Z)
+  out$posMu <- matrix(colMeans(out$Z),nrow = n, ncol = q, byrow = T)
+  out$posR <- array(cov(out$Z),dim = c(q,q,n))
   rownames(out$A) <- rownames(out$C) <- rownames(out$D) <- colnames(out$Y) <- colnames(out$PI) <- paste0("Y",1:p)
   colnames(out$A) <- colnames(out$R) <- rownames(out$R) <- colnames(out$posR) <- rownames(out$posR) <- colnames(out$Z) <- names(out$mu) <- names(out$posMu) <- paste0("Z",1:q)
   colnames(out$U) <- paste0("U",1:q)
@@ -285,14 +285,21 @@ gapmCDM_findqCV <- function(Ytrain, Ytest, q, control = list(), ...){
   control = pr_control_gaCDM(control,...)
   control$sampler = match.arg(control$sampler, c("ULA","MALA","RWMH"))
   control$basis = match.arg(control$basis, c("is","bs","pwl"))
-  if(control$basis == "pwl" & is.null(control$degree)) control$degree = 1
-  if(control$basis != "pwl" & is.null(control$degree)) control$degree = 2
-  if(!is.null(control$start.zn) & is.matrix(control$start.zn)){
+  if(is.null(control$degree) && control$basis == "pwl") control$degree = 1
+  if(is.null(control$degree) && control$basis != "pwl") control$degree = 2
+
+  if(!is.null(control$start.zn) && is.matrix(control$start.zn)){
     zn = control$start.zn
-  } else {
-    if(control$verbose) cat(paste0("\n Generating random starting values for latent variables q = ", q," ..."))
+  } else if(control$start.zn == "random") {
+    if(control$verbose) cat(" Generating random starting values for latent variables ...")
     zn = mvtnorm::rmvnorm(nrow(Ytrain),mean = rep(0,q))
-    if(control$verbose) cat(paste0("\r Generating random starting values for latent variables q = ", q," ... (Done!) \n"))
+    if(control$verbose) cat("\r Generating random starting values for latent variables ... (Done!) \n")
+  } else if(control$start.zn == "fa") {
+    if(control$verbose) cat(" Generating starting values for latent variables via Factor Analysis ...")
+    tmp = suppressWarnings(psych::fa(r = Ytrain, nfactors = q, cor = "tet", fm = "ml", rotate = "oblimin"))
+    zn = tmp$scores
+    if(control$cor.R) pp$R = cor(zn) else pp$R = cov(zn)
+    if(control$verbose) cat("\r Generating starting values for latent variables via Factor Analysis ... (Done!) \n")
   }
 
   p = ncol(Ytrain)
@@ -336,14 +343,21 @@ gapmCDM_mllkCV <- function(Ytrain, Ytest, q, control = list(), ...){
   if(control$verbose) cat(paste0(" [ Training data ] \n"))
   control$sampler = match.arg(control$sampler, c("ULA","MALA","RWMH"))
   control$basis = match.arg(control$basis, c("is","bs","pwl"))
-  if(control$basis == "pwl" & is.null(control$degree)) control$degree = 1
-  if(control$basis != "pwl" & is.null(control$degree)) control$degree = 2
-  if(!is.null(control$start.zn) & is.matrix(control$start.zn)){
+  if(is.null(control$degree) && control$basis == "pwl") control$degree = 1
+  if(is.null(control$degree) && control$basis != "pwl") control$degree = 2
+
+  if(!is.null(control$start.zn) && is.matrix(control$start.zn)){
     zn = control$start.zn
-  } else {
-      if(control$verbose) cat(paste0(" Generating random starting values for latent variables ..."))
-      zn = mvtnorm::rmvnorm(nrow(Ytrain),mean = rep(0,q))
-      if(control$verbose) cat(paste0("\r Generating random starting values for latent variables ... (Done!) \n"))
+  } else if(control$start.zn == "random") {
+    if(control$verbose) cat(" Generating random starting values for latent variables ...")
+    zn = mvtnorm::rmvnorm(nrow(Ytrain),mean = rep(0,q))
+    if(control$verbose) cat("\r Generating random starting values for latent variables ... (Done!) \n")
+  } else if(control$start.zn == "fa") {
+    if(control$verbose) cat(" Generating starting values for latent variables via Factor Analysis ...")
+    tmp = suppressWarnings(psych::fa(r = Ytrain, nfactors = q, cor = "tet", fm = "ml", rotate = "oblimin"))
+    zn = tmp$scores
+    if(control$cor.R) pp$R = cor(zn) else pp$R = cov(zn)
+    if(control$verbose) cat("\r Generating starting values for latent variables via Factor Analysis ... (Done!) \n")
   }
 
   p = ncol(Ytrain)
@@ -415,12 +429,18 @@ apmCDM <- function(data, q, Qmatrix, control = list(), start.par = NULL, ...){
     pp = pr_param_aCDM(p,q,Qmatrix,F,control)
   }
 
-  if(!is.null(control$start.zn) & is.matrix(control$start.zn)){
+  if(!is.null(control$start.zn) && is.matrix(control$start.zn)){
     zn = control$start.zn
-  } else {
+  } else if(control$start.zn == "random") {
     if(control$verbose) cat(" Generating random starting values for latent variables ...")
     zn = mvtnorm::rmvnorm(nrow(data),mean = rep(0,q))
     if(control$verbose) cat("\r Generating random starting values for latent variables ... (Done!) \n")
+  } else if(control$start.zn == "fa") {
+    if(control$verbose) cat(" Generating starting values for latent variables via Factor Analysis ...")
+    tmp = suppressWarnings(psych::fa(r = data, nfactors = q, cor = "tet", fm = "ml", rotate = "oblimin"))
+    zn = tmp$scores
+    if(control$cor.R) pp$R = cor(zn) else pp$R = cov(zn)
+    if(control$verbose) cat("\r Generating starting values for latent variables via Factor Analysis ... (Done!) \n")
   }
 
   if(!is.null(control$seed)) set.seed(control$seed)
@@ -480,8 +500,8 @@ apmCDM_sim <- function(n, p, q, Qmatrix, control = list(),
   out$G <- pp$G
   out$mu <- pp$mu
   out$R <- pp$R
-  out$posMu <- colMeans(out$Z)
-  out$posR <- cov(out$Z)
+  out$posMu <- matrix(colMeans(out$Z),nrow = n, ncol = q, byrow = T)
+  out$posR <- array(cov(out$Z),dim = c(q,q,n))
   rownames(out$G) <- colnames(out$Y) <- colnames(out$PI) <- paste0("Y",1:p)
   colnames(out$G) <- c("(Intercept)",paste0("Z",1:q))
   colnames(out$R) <- rownames(out$R) <- colnames(out$posR) <- rownames(out$posR) <- colnames(out$Z) <- names(out$mu) <- names(out$posMu) <-paste0("Z",1:q)
@@ -572,12 +592,19 @@ apmCDM_mllkCV <- function(Ytrain, Ytest, q, Qmatrix, control = list(), ...){
   if(control$verbose) cat(" Model: Additive PM-CDM \n")
   if(control$verbose) cat(paste0(" [ Training data ] \n"))
   control$sampler = match.arg(control$sampler, c("ULA","MALA","RWMH"))
-  if(!is.null(control$start.zn) & is.matrix(control$start.zn)){
+
+  if(!is.null(control$start.zn) && is.matrix(control$start.zn)){
     zn = control$start.zn
-  } else {
-    if(control$verbose) cat(paste0(" Generating random starting values for latent variables ..."))
+  } else if(control$start.zn == "random") {
+    if(control$verbose) cat(" Generating random starting values for latent variables ...")
     zn = mvtnorm::rmvnorm(nrow(Ytrain),mean = rep(0,q))
-    if(control$verbose) cat(paste0("\r Generating random starting values for latent variables ... (Done!) \n"))
+    if(control$verbose) cat("\r Generating random starting values for latent variables ... (Done!) \n")
+  } else if(control$start.zn == "fa") {
+    if(control$verbose) cat(" Generating starting values for latent variables via Factor Analysis ...")
+    tmp = suppressWarnings(psych::fa(r = data, nfactors = q, cor = "tet", fm = "ml", rotate = "oblimin"))
+    zn = tmp$scores
+    if(control$cor.R) pp$R = cor(zn) else pp$R = cov(zn)
+    if(control$verbose) cat("\r Generating starting values for latent variables via Factor Analysis ... (Done!) \n")
   }
 
   Apat = as.matrix(expand.grid(lapply(1:q,function(x) c(0,1))))

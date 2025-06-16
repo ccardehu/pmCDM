@@ -9,15 +9,17 @@
 #' @details Test
 #' @author Camilo Cárdenas-Hurtado (\email{c.a.cardenas-hurtado@@lse.ac.uk}).
 #' @export
-logLik.pmCDM <- function(mod, Y, control = list(), ...){
+logLik.pmCDM <- function(mod, Y = NULL, control = list(), ...){
+  if(!is.null(mod$Y)) Y <- as.matrix(mod$Y)
+  if(!is.null(Y) && !is.matrix(Y)) Y <- as.matrix(Y)
   if("gapmCDM" %in% class(mod)){
     if(!is.null(mod$llk)){
       return(mod$llk)
     } else {
       control = pr_control_gaCDM(control,...)
       control$basis = match.arg(control$basis, c("is","bs","pwl"))
-      if(control$basis == "pwl" & is.null(control$degree)) control$degree = 1
-      if(control$basis != "pwl" & is.null(control$degree)) control$degree = 2
+      if(is.null(control$degree) && control$basis == "pwl") control$degree = 1
+      if(is.null(control$degree) && control$basis != "pwl") control$degree = 2
       if(control$verbose) cat(" Model: Generalized Additive PM-CDM")
       llk = fy_gapmCDM_IS(Y = Y[],A = mod$A[],C = mod$C[],mu = mod$mu[],R = mod$R[],
                           pM = mod$posMu[], pR = mod$posR[], control = control)
