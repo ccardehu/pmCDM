@@ -48,10 +48,6 @@ arma::mat fz_IS(arma::mat& Z, arma::mat& pM, arma::cube& pR);
 double fy_gapmCDM(arma::mat& Y, arma::mat& A, arma::cube& C,
                   arma::vec& mu, arma::mat& R, Rcpp::List& control);
 
-double fy_gapmCDM_IS(arma::mat& Y, arma::mat& A, arma::cube& C,
-                     arma::vec& mu, arma::mat& R,
-                     arma::mat& pM, arma::cube& pR, Rcpp::List& control);
-
 Rcpp::List d1AC(arma::mat& Y, arma::mat& PI, arma::mat& ism,
                 arma::mat& A, arma::cube& C);
 
@@ -75,7 +71,7 @@ double fy_aCDM(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apat,
                arma::vec& mu, arma::mat& R, Rcpp::List& control);
 
 double fy_aCDM_IS(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apat,
-                  arma::vec& mu, arma::mat& R,
+                  arma::vec& mu, arma::mat& R, arma::mat& Z,
                   arma::mat& pM, arma::cube& pR, Rcpp::List& control);
 
 Rcpp::List d1G(arma::mat& Y, arma::mat& U, arma::mat& PI, arma::mat& G,

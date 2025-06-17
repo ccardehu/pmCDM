@@ -21,7 +21,7 @@ logLik.pmCDM <- function(mod, Y = NULL, control = list(), ...){
       if(is.null(control$degree) && control$basis == "pwl") control$degree = 1
       if(is.null(control$degree) && control$basis != "pwl") control$degree = 2
       if(control$verbose) cat(" Model: Generalized Additive PM-CDM")
-      llk = fy_gapmCDM_IS(Y = Y[],A = mod$A[],C = mod$C[],mu = mod$mu[],R = mod$R[],
+      llk = fy_gapmCDM_IS(Y = Y[],A = mod$A[],C = mod$C[],mu = mod$mu[],R = mod$R[],Z = mod$Z[],
                           pM = mod$posMu[], pR = mod$posR[], control = control)
       return(llk)
     }

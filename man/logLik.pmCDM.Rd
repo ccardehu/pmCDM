@@ -4,7 +4,7 @@
 \alias{logLik.pmCDM}
 \title{Compute marginal log-likelihood (via Importance Sampling) for an object of class "pmCDM".}
 \usage{
-\method{logLik}{pmCDM}(mod, Y, control = list(), ...)
+\method{logLik}{pmCDM}(mod, Y = NULL, control = list(), ...)
 }
 \arguments{
 \item{mod}{\code{pmCDM} object.}

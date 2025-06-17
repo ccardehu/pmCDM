@@ -21,7 +21,7 @@ Rcpp::List newpMR(arma::mat& Z, arma::mat& posM, arma::cube& posR, int iter);
 
 arma::mat newZ_ULA(arma::mat& Y, arma::mat& PI, arma::mat& Z, arma::mat& A, arma::cube& C,
                    arma::vec& mu, arma::mat& R,
-                   arma::mat& isd, double& h, arma::vec& knots, const unsigned int degree);
+                   arma::mat& isd, double& h);
 
 arma::mat newZ_MALA(arma::mat& Y, arma::mat& PI,arma::mat& Z, arma::mat& A, arma::cube& C,
                     arma::vec& mu, arma::mat& R, double& ar,
@@ -42,5 +42,14 @@ arma::mat newZ_RWMH_aCDM(arma::mat& Y, arma::mat& PI, arma::mat& Z,
 
 arma::mat newZ_MALA_aCDM(arma::mat& Y, arma::mat& PI, arma::mat& Z, arma::mat& Qmatrix, arma::mat& Apat,
                          arma::mat& G, arma::vec& mu, arma::mat& R, double& h, double& ar);
+
+double fy_gapmCDM_IS(arma::mat& Y, arma::mat& A, arma::cube& C,
+                     arma::vec& mu, arma::mat& R, arma::mat& Z,
+                     arma::mat& pM, arma::cube& pR, Rcpp::List& control);
+
+double fy_aCDM_IS(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apat,
+                  arma::vec& mu, arma::mat& R, arma::mat& Z,
+                  arma::mat& pM, arma::cube& pR, Rcpp::List& control);
+
 
 #endif

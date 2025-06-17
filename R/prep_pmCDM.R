@@ -5,7 +5,7 @@ pr_control_gaCDM <- function(control, ...){
               "h" = 1e-2, "tune.eps" = 1, "return.trace" = F,
               "degree" = NULL, "knots" = seq(.1,.9,by = 0.1),"cor.R" = T,
               "nsim" = 5e3, "verbose" = T, "seed" = NULL, "mu" = NULL, "R" = NULL,
-              "start.zn" = "fa", "sampler" = "ULA", "basis" = "pwl", "algorithm" = "mixed",
+              "start.zn" = "fa", "sampler" = "ULA", "basis" = "pwl", "algorithm" = "mixed", "start.zn.test" = "fa",
               "window" = 10, "stop.atconv" = T, "adam.b1" = .9, "adam.b2" = .999)
   control <- c(control, list(...))
   namC <- names(con)
@@ -22,7 +22,7 @@ pr_control_aCDM <- function(control, ...){
               "h" = 1e-2, "tune.eps" = 1, "return.trace" = F,
               "max.G0" = 0.10, "cor.R" = T,
               "nsim" = 5e3, "verbose" = T, "seed" = NULL, "mu" = NULL, "R" = NULL,
-              "start.zn" = "fa", "sampler" = "ULA",
+              "start.zn" = "fa", "sampler" = "ULA", "start.zn.test" = "fa",
               "window" = 10, "stop.atconv" = T, "adam.b1" = .9, "adam.b2" = .999)
   control <- c(control, list(...))
   namC <- names(con)

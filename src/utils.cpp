@@ -381,59 +381,6 @@ double fy_gapmCDM(arma::mat& Y, arma::mat& A, arma::cube& C,
   return(mllk);
 }
 
-// [[Rcpp::export]]
-double fy_gapmCDM_IS(arma::mat& Y, arma::mat& A, arma::cube& C,
-                     arma::vec& mu, arma::mat& R,
-                     arma::mat& pM, arma::cube& pR, Rcpp::List& control){
-
-  const unsigned int degree = control["degree"];
-  const int nsim = control["nsim"];
-  arma::vec knots = control["knots"];
-  const bool verbose = control["verbose"];
-  const std::string basis = Rcpp::as<std::string>(control["basis"]);
-
-  const int n = Y.n_rows;
-  double mllk = 0;
-  arma::mat Eobj(n,nsim);
-  arma::mat Zsim(n,R.n_cols);
-  arma::mat isMo(n,R.n_cols * C.n_cols);
-  arma::mat isDo(n,R.n_cols * C.n_cols);
-  arma::cube spObj(n,R.n_cols * C.n_cols,2);
-  // arma::vec pmu = pmur.t();
-  // arma::mat fixpR(arma::size(R), arma::fill::eye);
-  // arma::mat pr = 1.5*fixpR + pR;
-  arma::cube pRf(arma::size(pR));
-  cube2eye(pRf);
-  pRf += pR ;
-  if(verbose) Rcpp::Rcout << "\n Calculating marginal log-likelihood (via IS, iteration: ";
-  for(int ii = 0; ii < nsim; ii++){
-    if (ii % 2 == 0) Rcpp::checkUserInterrupt();
-    if(verbose & (ii % 10 == 0)) Rcpp::Rcout << "\r Calculating marginal log-likelihood (via IS, iteration: " << std::setw(5) << ii << ") ... ";
-    // Zsim = rmvNorm(n,pmu,pr);
-    Zsim = rmvNorm_IS(pM,pR);
-    arma::mat Usim = Z2U(Zsim);
-    if(basis == "is"){
-      spObj = SpU_isp(Usim,knots,degree);
-      isMo = spObj.slice(0);
-    } else {
-      spObj = SpU_bsp(Usim,knots,degree);
-      isMo = spObj.slice(0);
-    }
-    arma::mat piH = prob(A,C,isMo);
-    Eobj.col(ii) = arma::sum(fyz(Y,piH),1) + fz(Zsim,mu,R) - fz_IS(Zsim,pM,pRf);
-  }
-  arma::vec maxEobj(n);
-  for(int m = 0; m < n; m++){
-    maxEobj(m) = arma::max(Eobj.row(m));
-  }
-  Eobj.each_col() -= maxEobj;
-  arma::mat EEobj = arma::exp(Eobj);
-  arma::vec V1 = arma::log(arma::sum(EEobj,1));
-  mllk = arma::accu(V1) + arma::accu(maxEobj) - n*std::log(nsim);
-  if(verbose) Rcpp::Rcout << "\r Calculating marginal log-likelihood (via IS, iteration: " << std::setw(5) << nsim << ") ... (m-llk: " << std::to_string(mllk) << ")";
-  return(mllk);
-}
-
 Rcpp::List d1AC(arma::mat& Y, arma::mat& PI, arma::mat& ism,
                 arma::mat& A, arma::cube& C){
   arma::mat YmPI = (Y - PI)/(PI % (1-PI));
@@ -757,45 +704,6 @@ double fy_aCDM(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apat,
   arma::vec V1 = arma::log(arma::sum(EEobj,1));
   mllk = arma::accu(V1) + arma::accu(maxEobj) - n*std::log(nsim);
   if(verbose) Rcpp::Rcout << "\r Calculating marginal log-likelihood ... (m-llk: " << std::to_string(mllk) << ")";
-  return(mllk);
-}
-
-// [[Rcpp::export]]
-double fy_aCDM_IS(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apat,
-                  arma::vec& mu, arma::mat& R,
-                  arma::mat& pM, arma::cube& pR, Rcpp::List& control){
-
-  const int nsim = control["nsim"];
-  const bool verbose = control["verbose"];
-
-  const int n = Y.n_rows;
-  double mllk = 0;
-  arma::mat Eobj(n,nsim);
-  arma::mat Zsim(n,R.n_cols);
-  // arma::vec pmu = pmur.t();
-  // arma::mat fixpR(arma::size(R), arma::fill::eye);
-  // arma::mat pr = 1.5*fixpR + pR;
-  arma::cube pRf(arma::size(pR));
-  cube2eye(pRf);
-  pRf += pR ;
-  if(verbose) Rcpp::Rcout << "\n Calculating marginal log-likelihood (via IS, iteration: ";
-  for(int ii = 0; ii < nsim; ii++){
-    if (ii % 2 == 0) Rcpp::checkUserInterrupt();
-    if(verbose & (ii % 10 == 0)) Rcpp::Rcout << "\r Calculating marginal log-likelihood (via IS, iteration: " << std::setw(5) << ii << ") ... ";
-    Zsim = rmvNorm_IS(pM,pR);
-    arma::mat Usim = Z2U(Zsim);
-    arma::mat piH = prob_aCDM(G,Usim,Apat);
-    Eobj.col(ii) = arma::sum(fyz(Y,piH),1) + fz(Zsim,mu,R) - fz_IS(Zsim,pM,pRf);
-  }
-  arma::vec maxEobj(n);
-  for(int m = 0; m < n; m++){
-    maxEobj(m) = arma::max(Eobj.row(m));
-  }
-  Eobj.each_col() -= maxEobj;
-  arma::mat EEobj = arma::exp(Eobj);
-  arma::vec V1 = arma::log(arma::sum(EEobj,1));
-  mllk = arma::accu(V1) + arma::accu(maxEobj) - n*std::log(nsim);
-  if(verbose) Rcpp::Rcout << "\r Calculating marginal log-likelihood (via IS, iter: " << std::setw(5) << nsim << ") ... (m-llk: " << std::to_string(mllk) << ")";
   return(mllk);
 }
 

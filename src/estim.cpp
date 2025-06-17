@@ -246,7 +246,7 @@ Rcpp::List newpMR(arma::mat& Z, arma::mat& posM, arma::cube& posR, int iter){
 
 arma::mat newZ_ULA(arma::mat& Y, arma::mat& PI,arma::mat& Z, arma::mat& A, arma::cube& C,
                    arma::vec& mu, arma::mat& R,
-                   arma::mat& isd, double& h, arma::vec& knots, const unsigned int degree){
+                   arma::mat& isd, double& h){
    arma::mat YmPIo = (Y - PI)/(PI % (1-PI));
    const int n = YmPIo.n_rows;
    const int q = R.n_cols;
@@ -433,4 +433,206 @@ arma::mat newZ_MALA_aCDM(arma::mat& Y, arma::mat& PI, arma::mat& Z, arma::mat& Q
       }
    }
    return Zout;
+}
+
+// [[Rcpp::export]]
+double fy_gapmCDM_IS(arma::mat& Y, arma::mat& A, arma::cube& C,
+                     arma::vec& mu, arma::mat& R, arma::mat& Z,
+                     arma::mat& pM, arma::cube& pR, Rcpp::List& control){
+
+   const unsigned int degree = control["degree"];
+   const int nsim = control["nsim"];
+   arma::vec knots = control["knots"];
+   const bool verbose = control["verbose"];
+   const std::string basis = Rcpp::as<std::string>(control["basis"]);
+   const std::string sampler = Rcpp::as<std::string>(control["sampler"]);
+
+   const int n = Y.n_rows;
+   double mllk = 0;
+   arma::mat Eobj(n,nsim);
+   arma::mat Zsim(Z);
+   arma::mat isMo(n,R.n_cols * C.n_cols);
+   arma::mat isDo(n,R.n_cols * C.n_cols);
+   arma::cube spObj(n,R.n_cols * C.n_cols,2);
+
+   const int q = R.n_rows;
+   int n1 = pR.n_slices;
+   double ar = 0;
+   if(n != n1){
+      pM.set_size(n,q);
+      pM.fill(0.0);
+      pR.set_size(q,q,n);
+      pR.fill(0.0);
+      cube2eye(pR);
+      arma::mat pMn(arma::size(pM));
+      arma::cube pRn(arma::size(pR));
+      double h = control["h"];
+      double ssZ;
+      arma::mat Zsam(Z);
+      if(verbose) Rcpp::Rcout << " Sampling latent attributes for test data ";
+      for(int ii = 1; ii <= nsim; ii++){
+         arma::mat Usam = Z2U(Zsam);
+         if(basis == "is"){
+            spObj = SpU_isp(Usam,knots,degree);
+            isMo = spObj.slice(0);
+            isDo = spObj.slice(1);
+         } else {
+            spObj = SpU_bsp(Usam,knots,degree);
+            isMo = spObj.slice(0);
+            isDo = spObj.slice(1);
+         }
+         arma::mat piH = prob(A,C,isMo);
+         arma::mat Zn(arma::size(Zsam));
+         if(sampler == "ULA"){
+            ssZ = h * std::pow(ii,-.333);
+            Zn = newZ_ULA(Y,piH,Zsam,A,C,mu,R,isDo,ssZ);
+         } else if(sampler == "MALA"){
+            ssZ = h * std::pow(q,-.333);
+            Zn = newZ_MALA(Y,piH,Zsam,A,C,mu,R,ar,isDo,ssZ,knots,degree,basis);
+         } else if(sampler == "RWMH"){
+            ssZ = h * std::pow(q,-1);
+            Zn = newZ_RWMH(Y,piH,Zsam,A,C,mu,R,ar,ssZ,knots,degree,basis);
+         }
+         Rcpp::List MRn = newpMR(Zn,pM,pR,ii);
+         pMn = Rcpp::as<arma::mat>(MRn["posM"]);
+         pRn = Rcpp::as<arma::cube>(MRn["posR"]);
+         Zsam = Zn;
+         pM = pMn;
+         pR = pRn;
+         if(verbose & (ii % 10 == 0)){
+            if(sampler == "ULA"){
+               Rcpp::Rcout << "\r Sampling latent attributes for test data (iteration: " << ii << ") ... ";
+            } else {
+               Rcpp::Rcout << "\r Sampling latent attributes for test data (iteration: " << ii << ", AR (" << sampler << "): " << std::to_string(ar/(n*ii)) << ") ... ";
+            }
+         }
+      }
+      if(verbose){
+         if(sampler == "ULA"){
+            Rcpp::Rcout << "\r Sampling latent attributes for test data (iteration: " << nsim << ") ... (Done!)";
+         } else {
+            Rcpp::Rcout << "\r Sampling latent attributes for test data (iteration: " << nsim << ", AR (" << sampler << "): " << std::to_string(ar/(n*nsim)) << ") ... Done!";
+         }
+      }
+   }
+
+   arma::cube pRf(arma::size(pR));
+   cube2eye(pRf);
+   pRf += pR ;
+   if(verbose) Rcpp::Rcout << "\n Calculating marginal log-likelihood (via IS, iteration: ";
+   for(int ii = 0; ii < nsim; ii++){
+      if (ii % 2 == 0) Rcpp::checkUserInterrupt();
+      if(verbose & (ii % 10 == 0)) Rcpp::Rcout << "\r Calculating marginal log-likelihood (via IS, iteration: " << std::setw(5) << ii << ") ... ";
+      arma::mat Usim = Z2U(Zsim);
+      if(basis == "is"){
+         spObj = SpU_isp(Usim,knots,degree);
+         isMo = spObj.slice(0);
+      } else {
+         spObj = SpU_bsp(Usim,knots,degree);
+         isMo = spObj.slice(0);
+      }
+      arma::mat piH = prob(A,C,isMo);
+      Eobj.col(ii) = arma::sum(fyz(Y,piH),1) + fz(Zsim,mu,R) - fz_IS(Zsim,pM,pRf);
+      Zsim = rmvNorm_IS(pM,pR);
+   }
+   arma::vec maxEobj(n);
+   for(int m = 0; m < n; m++){
+      maxEobj(m) = arma::max(Eobj.row(m));
+   }
+   Eobj.each_col() -= maxEobj;
+   arma::mat EEobj = arma::exp(Eobj);
+   arma::vec V1 = arma::log(arma::sum(EEobj,1));
+   mllk = arma::accu(V1) + arma::accu(maxEobj) - n*std::log(nsim);
+   if(verbose) Rcpp::Rcout << "\r Calculating marginal log-likelihood (via IS, iteration: " << std::setw(5) << nsim << ") ... (m-llk: " << std::to_string(mllk) << ")";
+   return(mllk);
+}
+
+// [[Rcpp::export]]
+double fy_aCDM_IS(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apat,
+                  arma::vec& mu, arma::mat& R, arma::mat& Z,
+                  arma::mat& pM, arma::cube& pR, Rcpp::List& control){
+
+   const int nsim = control["nsim"];
+   const bool verbose = control["verbose"];
+   const std::string sampler = Rcpp::as<std::string>(control["sampler"]);
+
+   const int n = Y.n_rows;
+   double mllk = 0;
+   arma::mat Eobj(n,nsim);
+   arma::mat Zsim(Z);
+
+   const int q = R.n_rows;
+   int n1 = pR.n_slices;
+   double ar = 0;
+   if(n != n1){
+      pM.set_size(n,q);
+      pM.fill(0.0);
+      pR.set_size(q,q,n);
+      pR.fill(0.0);
+      cube2eye(pR);
+      arma::mat pMn(arma::size(pM));
+      arma::cube pRn(arma::size(pR));
+      double h = control["h"];
+      double ssZ;
+      arma::mat Zsam(Z);
+      if(verbose) Rcpp::Rcout << " Sampling latent attributes for test data ";
+      for(int ii = 1; ii <= nsim; ii++){
+         arma::mat Usam = Z2U(Zsam);
+         arma::mat piH = prob_aCDM(G,Usam,Apat);
+         arma::mat Zn(arma::size(Zsam));
+         if(sampler == "ULA"){
+            ssZ = h * std::pow(ii,-.333);
+            Zn = newZ_ULA_aCDM(Y,piH,Zsam,Qmatrix,Apat,G,mu,R,ssZ);
+         } else if(sampler == "MALA"){
+            ssZ = h * std::pow(q,-.333);
+            Zn = newZ_MALA_aCDM(Y,piH,Zsam,Qmatrix,Apat,G,mu,R,ssZ,ar);
+         } else if(sampler == "RWMH"){
+            ssZ = h * std::pow(q,-1);
+            Zn = newZ_RWMH_aCDM(Y,piH,Zsam,G,Apat,mu,R,ssZ,ar);
+         }
+         Rcpp::List MRn = newpMR(Zn,pM,pR,ii);
+         pMn = Rcpp::as<arma::mat>(MRn["posM"]);
+         pRn = Rcpp::as<arma::cube>(MRn["posR"]);
+         Zsam = Zn;
+         pM = pMn;
+         pR = pRn;
+         if(verbose & (ii % 10 == 0)){
+            if(sampler == "ULA"){
+               Rcpp::Rcout << "\r Sampling latent attributes for test data (iteration: " << ii << ") ... ";
+            } else {
+               Rcpp::Rcout << "\r Sampling latent attributes for test data (iteration: " << ii << ", AR (" << sampler << "): " << std::to_string(ar/(n*ii)) << ") ... ";
+            }
+         }
+      }
+      if(verbose){
+         if(sampler == "ULA"){
+            Rcpp::Rcout << "\r Sampling latent attributes for test data (iteration: " << nsim << ") ... (Done!)";
+         } else {
+            Rcpp::Rcout << "\r Sampling latent attributes for test data (iteration: " << nsim << ", AR (" << sampler << "): " << std::to_string(ar/(n*nsim)) << ") ... Done!";
+         }
+      }
+   }
+
+   arma::cube pRf(arma::size(pR));
+   cube2eye(pRf);
+   pRf += pR ;
+   if(verbose) Rcpp::Rcout << "\n Calculating marginal log-likelihood (via IS, iteration: ";
+   for(int ii = 0; ii < nsim; ii++){
+      if (ii % 2 == 0) Rcpp::checkUserInterrupt();
+      if(verbose & (ii % 10 == 0)) Rcpp::Rcout << "\r Calculating marginal log-likelihood (via IS, iteration: " << std::setw(5) << ii << ") ... ";
+      arma::mat Usim = Z2U(Zsim);
+      arma::mat piH = prob_aCDM(G,Usim,Apat);
+      Eobj.col(ii) = arma::sum(fyz(Y,piH),1) + fz(Zsim,mu,R) - fz_IS(Zsim,pM,pRf);
+      Zsim = rmvNorm_IS(pM,pR);
+   }
+   arma::vec maxEobj(n);
+   for(int m = 0; m < n; m++){
+      maxEobj(m) = arma::max(Eobj.row(m));
+   }
+   Eobj.each_col() -= maxEobj;
+   arma::mat EEobj = arma::exp(Eobj);
+   arma::vec V1 = arma::log(arma::sum(EEobj,1));
+   mllk = arma::accu(V1) + arma::accu(maxEobj) - n*std::log(nsim);
+   if(verbose) Rcpp::Rcout << "\r Calculating marginal log-likelihood (via IS, iter: " << std::setw(5) << nsim << ") ... (m-llk: " << std::to_string(mllk) << ")";
+   return(mllk);
 }

@@ -78,12 +78,9 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
   arma::mat Rout(arma::size(R));
   arma::mat spM(n,q*np), spD(n,q*np);
   arma::cube spObj(n,q*np,2);
-  // arma::mat posR(q,q);
   arma::cube pR(q,q,n), pRn(q,q,n), pRout(q,q,n);
   cube2eye(pR);
-  // arma::rowvec posM(q);
   arma::mat pM(arma::size(Z)), pMn(arma::size(Z)), pMout(arma::size(Z));
-
   arma::uvec Rld = arma::trimatl_ind(arma::size(R),-1);
 
   const int tp = A.size() + C.size() + mu.size() + Rld.size();
@@ -165,7 +162,7 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
       Zn = Z;
     } else {
       if(sampler == "ULA"){
-        Zn = newZ_ULA(Y,PI,Z,A,C,mu,R,spD,ssZ,knots,degree);
+        Zn = newZ_ULA(Y,PI,Z,A,C,mu,R,spD,ssZ);
       } else if(sampler == "MALA"){
         Zn = newZ_MALA(Y,PI,Z,A,C,mu,R,ar,spD,ssZ,knots,degree,basis);
       } else if(sampler == "RWMH"){
@@ -173,8 +170,8 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
       }
     }
     Rcpp::List MRn = newpMR(Zn,pM,pR,iter);
-    pMn =  Rcpp::as<arma::mat>(MRn["posM"]);
-    pRn =  Rcpp::as<arma::cube>(MRn["posR"]);
+    pMn = Rcpp::as<arma::mat>(MRn["posM"]);
+    pRn = Rcpp::as<arma::cube>(MRn["posR"]);
     A = An;
     C = Cn;
     D = Dn;
@@ -260,7 +257,7 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
   double llk(0), BIC(0), AIC(0);
   if(nsim != 0){
     // llk = fy_gapmCDM(Y,Aout,Cout,Mout,Rout,control);
-    llk = fy_gapmCDM_IS(Y,Aout,Cout,Mout,Rout,
+    llk = fy_gapmCDM_IS(Y,Aout,Cout,Mout,Rout,Zout,
                         pMout,pRout,control);
     BIC = -2*llk + std::log(n)*Aout.n_elem;
     AIC = -2*llk + 2*Aout.n_elem;
@@ -346,7 +343,7 @@ Rcpp::List gapmCDM_cv_rcpp(arma::mat& Ytrain, arma::mat& Ytest, arma::mat& A, ar
     double ar = 0;
     if(sampler == "ULA"){
       double ssZ = h * std::pow(ii,-.33) ;
-      Zn = newZ_ULA(Ytrain,PI,Z,A,C,mu,R,spD,ssZ,knots,degree);
+      Zn = newZ_ULA(Ytrain,PI,Z,A,C,mu,R,spD,ssZ);
     } else if(sampler == "MALA"){
       double ssZ = h * std::pow(q,-.33) ;
       Zn = newZ_MALA(Ytrain,PI,Z,A,C,mu,R,ar,spD,ssZ,knots,degree,basis);
@@ -562,7 +559,7 @@ Rcpp::List apmCDM_fit_rcpp(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma:
   double llk(0), BIC(0), AIC(0);
   if(nsim != 0){
     // llk = fy_aCDM(Y,Gout,Qmatrix,Apat,Mout,Rout,control);
-    llk = fy_aCDM_IS(Y,Gout,Qmatrix,Apat,Mout,Rout,
+    llk = fy_aCDM_IS(Y,Gout,Qmatrix,Apat,Mout,Rout,Zout,
                      pMout,pRout,control);
     BIC = -2*llk + std::log(n)*tp;
     AIC = -2*llk + 2*tp;
