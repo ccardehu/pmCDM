@@ -134,7 +134,7 @@ double dmvNorm(arma::vec& y, arma::vec& mu, arma::mat& R, const bool log = true)
   const int q = y.size() ;
   double lR, sign, out(0.0);
   bool ok = arma::log_det(lR, sign, R);
-  if(ok) out = -0.5*(q*std::log(2*M_PI) + lR + arma::as_scalar((y - mu).t()*(arma::inv_sympd(R, arma::inv_opts::allow_approx)*(y - mu)))) ;
+  if(ok) out = -0.5*(q*std::log(2*M_PI) + lR + arma::as_scalar((y - mu).t()*(arma::solve(R, y - mu,arma::solve_opts::likely_sympd)))) ;
   if(log) return(out);
   else return(std::exp(out));
 }
@@ -338,53 +338,52 @@ arma::mat fz_IS(arma::mat& Z, arma::mat& pM, arma::cube& pR){
   return(out);
 }
 
-// [[Rcpp::export]]
-double fy_gapmCDM(arma::mat& Y, arma::mat& A, arma::cube& C,
-                  arma::vec& mu, arma::mat& R, Rcpp::List& control){
-
-  const unsigned int degree = control["degree"];
-  const int nsim = control["nsim"];
-  arma::vec knots = control["knots"];
-  const bool verbose = control["verbose"];
-  const std::string basis = Rcpp::as<std::string>(control["basis"]);
-
-  const int n = Y.n_rows;
-  if(verbose) Rcpp::Rcout << "\n Calculating marginal log-likelihood ... ";
-  double mllk = 0;
-  arma::mat Eobj(n,nsim);
-  arma::mat Zsim(n,R.n_cols);
-  arma::mat isMo(n,R.n_cols * C.n_cols);
-  arma::cube spObj(n,R.n_cols * C.n_cols,2);
-  for(int ii = 0; ii < nsim; ii++){
-    if (ii % 2 == 0) Rcpp::checkUserInterrupt();
-    Zsim = rmvNorm(n,mu,R);
-    arma::mat Usim = Z2U(Zsim);
-    if(basis == "is"){
-      spObj = SpU_isp(Usim,knots,degree);
-      isMo = spObj.slice(0);
-    } else {
-      spObj = SpU_bsp(Usim,knots,degree);
-      isMo = spObj.slice(0);
-    }
-    arma::mat piH = prob(A,C,isMo);
-    Eobj.col(ii) = arma::sum(fyz(Y,piH),1);
-  }
-  arma::vec maxEobj(n);
-  for(int m = 0; m < n; m++){
-    maxEobj(m) = arma::max(Eobj.row(m));
-  }
-  Eobj.each_col() -= maxEobj;
-  arma::mat EEobj = arma::exp(Eobj);
-  arma::vec V1 = arma::log(arma::sum(EEobj,1));
-  mllk = arma::accu(V1) + arma::accu(maxEobj) - n*std::log(nsim);
-  if(verbose) Rcpp::Rcout << "\r Calculating marginal log-likelihood ... (m-llk: " << std::to_string(mllk) << ")";
-  return(mllk);
-}
+// // [[Rcpp::export]]
+// double fy_gapmCDM(arma::mat& Y, arma::mat& A, arma::cube& C,
+//                   arma::vec& mu, arma::mat& R, Rcpp::List& control){
+//
+//   const unsigned int degree = control["degree"];
+//   const int nsim = control["nsim"];
+//   arma::vec knots = control["knots"];
+//   const bool verbose = control["verbose"];
+//   const std::string basis = Rcpp::as<std::string>(control["basis"]);
+//
+//   const int n = Y.n_rows;
+//   if(verbose) Rcpp::Rcout << "\n Calculating marginal log-likelihood ... ";
+//   double mllk = 0;
+//   arma::mat Eobj(n,nsim);
+//   arma::mat Zsim(n,R.n_cols);
+//   arma::mat isMo(n,R.n_cols * C.n_cols);
+//   arma::cube spObj(n,R.n_cols * C.n_cols,2);
+//   for(int ii = 0; ii < nsim; ii++){
+//     if (ii % 2 == 0) Rcpp::checkUserInterrupt();
+//     Zsim = rmvNorm(n,mu,R);
+//     arma::mat Usim = Z2U(Zsim);
+//     if(basis == "is"){
+//       spObj = SpU_isp(Usim,knots,degree);
+//       isMo = spObj.slice(0);
+//     } else {
+//       spObj = SpU_bsp(Usim,knots,degree);
+//       isMo = spObj.slice(0);
+//     }
+//     arma::mat piH = prob(A,C,isMo);
+//     Eobj.col(ii) = arma::sum(fyz(Y,piH),1);
+//   }
+//   arma::vec maxEobj(n);
+//   for(int m = 0; m < n; m++){
+//     maxEobj(m) = arma::max(Eobj.row(m));
+//   }
+//   Eobj.each_col() -= maxEobj;
+//   arma::mat EEobj = arma::exp(Eobj);
+//   arma::vec V1 = arma::log(arma::sum(EEobj,1));
+//   mllk = arma::accu(V1) + arma::accu(maxEobj) - n*std::log(nsim);
+//   if(verbose) Rcpp::Rcout << "\r Calculating marginal log-likelihood ... (m-llk: " << std::to_string(mllk) << ")";
+//   return(mllk);
+// }
 
 Rcpp::List d1AC(arma::mat& Y, arma::mat& PI, arma::mat& ism,
                 arma::mat& A, arma::cube& C){
   arma::mat YmPI = (Y - PI)/(PI % (1-PI));
-  // arma::mat EmPI = (-(arma::pow(PI,2) - 2.0*(PI%Y) + Y)/(arma::pow(PI-1,2)%arma::pow(PI,2)));
   const int p = YmPI.n_cols;
   const int q = C.n_slices;
   const int np = C.n_cols;
@@ -394,27 +393,19 @@ Rcpp::List d1AC(arma::mat& Y, arma::mat& PI, arma::mat& ism,
   arma::uvec ic = arma::regspace<arma::uvec>(A.size(), C.size() + A.size());
   arma::ucube iC(ic.begin(), C.n_rows, C.n_cols, C.n_slices, false);
   arma::vec out(tp);
-  // arma::mat Asq = arma::pow(A,2);
-  // arma::mat out2(tp,tp);
   for(int i = 0; i < p; i++){
     arma::vec YmPIcol = YmPI.col(i);
-    // arma::vec EmPIcol = EmPI.col(i);
     arma::uvec noNA = arma::find_finite(YmPIcol);
     for(int j = 0; j < q; j++){
       arma::uvec jcols = arma::regspace<uvec>(j*np,(j+1)*np-1);
       arma::uword idA = iA(i,j);
       arma::uvec idC = iC.slice(j).row(i).t();
       out(idA) = arma::as_scalar(YmPIcol.elem(noNA).t() * (ism(noNA,jcols)*(C.slice(j).row(i)).t()));
-      // out2(idA,idA) = arma::as_scalar((ism(noNA,jcols)*(C.slice(j).row(i)).t()).t()*arma::diagmat(EmPIcol.elem(noNA))*(ism(noNA,jcols)*(C.slice(j).row(i)).t()));
       arma::vec A2 = ism(noNA,jcols).t() * YmPIcol.elem(noNA);
-      // arma::mat A3 = ism(noNA,jcols).t() * arma::diagmat(EmPIcol.elem(noNA)) * ism(noNA,jcols);
       out(idC) = A(i,j) * A2 ; //A2.t()
-      // out2(idC,idC) = Asq(i,j) * arma::diagmat(A3) ;
     }
   }
-  // out2 = -1.0/arma::diagmat(out2);
   return Rcpp::List::create(Rcpp::Named("grad") = out,
-                            // Rcpp::Named("hess") = out2,
                             Rcpp::Named("iA") = iA,
                             Rcpp::Named("iC") = iC);
 }
@@ -676,36 +667,36 @@ arma::mat prob_aCDM(arma::mat& G, arma::mat& U, arma::mat& Apat){
 }
 
 
-// [[Rcpp::export]]
-double fy_aCDM(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apat,
-               arma::vec& mu, arma::mat& R, Rcpp::List& control){
-
-  const int nsim = control["nsim"];
-  const bool verbose = control["verbose"];
-
-  const int n = Y.n_rows;
-  if(verbose) Rcpp::Rcout << "\n Calculating marginal log-likelihood ... ";
-  double mllk = 0;
-  arma::mat Eobj(n,nsim);
-  arma::mat Zsim(n,R.n_cols);
-  for(int ii = 0; ii < nsim; ii++){
-    if (ii % 2 == 0) Rcpp::checkUserInterrupt();
-    Zsim = rmvNorm(n,mu,R);
-    arma::mat Usim = Z2U(Zsim);
-    arma::mat piH = prob_aCDM(G,Usim,Apat);
-    Eobj.col(ii) = arma::sum(fyz(Y,piH),1);
-  }
-  arma::vec maxEobj(n);
-  for(int m = 0; m < n; m++){
-    maxEobj(m) = arma::max(Eobj.row(m));
-  }
-  Eobj.each_col() -= maxEobj;
-  arma::mat EEobj = arma::exp(Eobj);
-  arma::vec V1 = arma::log(arma::sum(EEobj,1));
-  mllk = arma::accu(V1) + arma::accu(maxEobj) - n*std::log(nsim);
-  if(verbose) Rcpp::Rcout << "\r Calculating marginal log-likelihood ... (m-llk: " << std::to_string(mllk) << ")";
-  return(mllk);
-}
+// // [[Rcpp::export]]
+// double fy_aCDM(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apat,
+//                arma::vec& mu, arma::mat& R, Rcpp::List& control){
+//
+//   const int nsim = control["nsim"];
+//   const bool verbose = control["verbose"];
+//
+//   const int n = Y.n_rows;
+//   if(verbose) Rcpp::Rcout << "\n Calculating marginal log-likelihood ... ";
+//   double mllk = 0;
+//   arma::mat Eobj(n,nsim);
+//   arma::mat Zsim(n,R.n_cols);
+//   for(int ii = 0; ii < nsim; ii++){
+//     if (ii % 2 == 0) Rcpp::checkUserInterrupt();
+//     Zsim = rmvNorm(n,mu,R);
+//     arma::mat Usim = Z2U(Zsim);
+//     arma::mat piH = prob_aCDM(G,Usim,Apat);
+//     Eobj.col(ii) = arma::sum(fyz(Y,piH),1);
+//   }
+//   arma::vec maxEobj(n);
+//   for(int m = 0; m < n; m++){
+//     maxEobj(m) = arma::max(Eobj.row(m));
+//   }
+//   Eobj.each_col() -= maxEobj;
+//   arma::mat EEobj = arma::exp(Eobj);
+//   arma::vec V1 = arma::log(arma::sum(EEobj,1));
+//   mllk = arma::accu(V1) + arma::accu(maxEobj) - n*std::log(nsim);
+//   if(verbose) Rcpp::Rcout << "\r Calculating marginal log-likelihood ... (m-llk: " << std::to_string(mllk) << ")";
+//   return(mllk);
+// }
 
 Rcpp::List d1G(arma::mat& Y, arma::mat& U, arma::mat& PI, arma::mat& G,
                arma::mat& Apat, arma::mat& Qmatrix){

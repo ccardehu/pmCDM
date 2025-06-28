@@ -1,12 +1,16 @@
 pr_control_gaCDM <- function(control, ...){
 
-  con <- list("burn.in" = 3e3, "iter.lim" = 1e4, "tune.lim" = 5e2,
-              "stop.eps" = 1e-5, "gamma" = 1,
-              "h" = 1e-2, "tune.eps" = 1, "return.trace" = F,
-              "degree" = NULL, "knots" = seq(.1,.9,by = 0.1),"cor.R" = T,
-              "nsim" = 5e3, "verbose" = T, "seed" = NULL, "mu" = NULL, "R" = NULL,
-              "start.zn" = "fa", "sampler" = "ULA", "basis" = "pwl", "algorithm" = "mixed", "start.zn.test" = "fa",
-              "window" = 10, "stop.atconv" = T, "adam.b1" = .9, "adam.b2" = .999)
+  con <- list("burn.in" = 3e3, "iter.lim" = 1e4, "tune.lim" = 50,
+              "stop.eps" = 1e-5,
+              "gamma" = 1, "gamma.A" = 1, "gamma.CD" = 1, "gamma.R" = 1,
+              "h" = 1e-2, "tune.gamma" = 1, "return.trace" = F,
+              "basis" = "pwl", "degree" = NULL, "knots" = seq(.1,.9,by = 0.1),
+              "cor.R" = T,
+              "nsim" = 1e4, "verbose" = T, "verbose.every" = 10,
+              "seed" = NULL, "mu" = NULL, "R" = NULL, "sampler" = "ULA",
+              "start.zn" = "fa", "start.zn.test" = "random",
+              "window" = 10, "stop.atconv" = T,
+              "algorithm" = "mixed", "adam.b1" = .9, "adam.b2" = .999)
   control <- c(control, list(...))
   namC <- names(con)
   con[(namc <- names(control))] <- control
@@ -17,13 +21,16 @@ pr_control_gaCDM <- function(control, ...){
 
 pr_control_aCDM <- function(control, ...){
 
-  con <- list("burn.in" = 3e3, "iter.lim" = 1e4, "tune.lim" = 5e2,
-              "stop.eps" = 1e-5, "gamma" = 1,
-              "h" = 1e-2, "tune.eps" = 1, "return.trace" = F,
-              "max.G0" = 0.10, "cor.R" = T,
-              "nsim" = 5e3, "verbose" = T, "seed" = NULL, "mu" = NULL, "R" = NULL,
-              "start.zn" = "fa", "sampler" = "ULA", "start.zn.test" = "fa",
-              "window" = 10, "stop.atconv" = T, "adam.b1" = .9, "adam.b2" = .999)
+  con <- list("burn.in" = 3e3, "iter.lim" = 1e4, "tune.lim" = 50,
+              "stop.eps" = 1e-5,
+              "gamma" = 1, "gamma.G" = 1, "gamma.mu" = 1, "gamma.R"= 1,
+              "h" = 1e-2, "tune.gamma" = 1, "return.trace" = F,
+              "max.G0" = 0.10,
+              "cor.R" = F,
+              "nsim" = 1e4, "verbose" = T, "verbose.every" = 10,
+              "seed" = NULL, "mu" = NULL, "R" = NULL, "sampler" = "ULA",
+              "start.zn" = "fa", "start.zn.test" = "random",
+              "window" = 10, "stop.atconv" = T)
   control <- c(control, list(...))
   namC <- names(con)
   con[(namc <- names(control))] <- control
@@ -34,8 +41,8 @@ pr_control_aCDM <- function(control, ...){
 
 pr_controlsim_gaCDM <- function(control,q,...){
 
-  con <- list("degree" = NULL, "knots" = seq(.1,.9,by=0.2), "prob.sparse" = 0.75,
-              "iden.R" = F, "seed" = NULL, "mu" = NULL, "R" = NULL, "basis" = "is")
+  con <- list("degree" = NULL, "knots" = seq(.1,.9,by=0.1), "prob.sparse" = 0.75,
+              "iden.R" = F, "seed" = NULL, "mu" = NULL, "R" = NULL, "basis" = "pw")
   control <- c(control, list(...))
   namC <- names(con)
   con[(namc <- names(control))] <- control
@@ -59,7 +66,7 @@ pr_controlsim_aCDM <- function(control,q,...){
 pr_param_gaCDM <- function(p,q,tp,sim = F,control){
   if(!sim){
       As <- matrix(1/q,p,q)
-      Ds <- array(stats::rnorm(p*tp*q), dim = c(p,tp,q))
+      Ds <- array(1, dim = c(p,tp,q)) # stats::rnorm(p*tp*q)
       if(control$basis == "is"){
         Cs <- array(1/tp,dim = c(p,tp,q))
       } else {

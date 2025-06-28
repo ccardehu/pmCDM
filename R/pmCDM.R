@@ -61,7 +61,8 @@ gapmCDM <- function(data,q,control = list(), start.par = NULL, ...){
     if(control$verbose) cat("\r Generating random starting values for latent variables ... (Done!) \n")
   } else if(control$start.zn == "fa") {
     if(control$verbose) cat(" Generating starting values for latent variables via Factor Analysis ...")
-    tmp = suppressWarnings(psych::fa(r = data, nfactors = q, cor = "tet", fm = "ml", rotate = "oblimin"))
+    tmp = suppressWarnings(psych::fa(r = data, nfactors = q, cor = "tet", fm = "ml", rotate = "oblimin",
+                                     missing = T))
     zn = tmp$scores
     if(control$cor.R) pp$R = cor(zn) else pp$R = cov(zn)
     if(control$verbose) cat("\r Generating starting values for latent variables via Factor Analysis ... (Done!) \n")
@@ -263,7 +264,7 @@ gapmCDM_findqUI <- function(data, qmax = 10, qmin = 2, alpha = 0.05, type = "cro
   return(q)
 }
 
-#' Find number of latent variables (q) using cross-validation
+#' Find number of latent variables (q) using cross-validation (GaPM-CDM)
 #'
 #' @param Ytrain Matrix with observed binary entries to train the model. Missing entries (\code{Ytest}) coded as \code{NA}.
 #' @param Ytest Matrix with observed binary entries to test the model. All entries are \code{NA} but the missing in \code{Ytrain}.
@@ -280,13 +281,37 @@ gapmCDM_findqUI <- function(data, qmax = 10, qmin = 2, alpha = 0.05, type = "cro
 #' @details Define CV.error.
 #' @author Camilo Cárdenas-Hurtado (\email{c.a.cardenas-hurtado@@lse.ac.uk}).
 #' @export
-gapmCDM_findqCV <- function(Ytrain, Ytest, q, control = list(), ...){
+gapmCDM_findqCV <- function(Ytrain, Ytest, q, control = list(), start.par = NULL, ...){
 
   control = pr_control_gaCDM(control,...)
+  if(control$verbose) cat(" Model: Generalized Additive PM-CDM \n")
   control$sampler = match.arg(control$sampler, c("ULA","MALA","RWMH"))
   control$basis = match.arg(control$basis, c("is","bs","pwl"))
+  control$algorithm = match.arg(control$algorithm, c("GD","ADAM","mixed"))
   if(is.null(control$degree) && control$basis == "pwl") control$degree = 1
   if(is.null(control$degree) && control$basis != "pwl") control$degree = 2
+  p = ncol(data)
+  tp = length(control$knots) + control$degree
+
+  if(is.list(start.par)){
+    if(length(start.par) != 5) stop("Argument `start.par' needs to be a list with elements `A', `C', `D', `mu', and `R'.")
+    ppD1 = start.par
+    if(nrow(ppD1$A) != ncol(data)) stop("Matrix `start.par$A' mismatch rows with p.")
+    if(ncol(ppD1) != ncol(ppD1$D)) stop("Mismatch columns in `start.par$C' and `start.par$D'.")
+    if(ncol(ppD1$C) != length(control$knots) + control$degree) stop("Matrix `start.par$C' mismatch rows with length(control$knots) + control$degree")
+    if(length(ppD1$mu) != nrow(ppD1$R)) stop("Lenght of `start.par$mu' and nrows of `start.par$R' differ.")
+  }
+  if(!is.null(start.par) && !is.list(start.par) && (start.par == "random")){
+    if(control$verbose) cat(" Generating random starting values for model parameters ...")
+    control$prob.sparse = 0.0
+    control$iden.R = T
+    if(!is.null(control$seed)) set.seed(control$seed)
+    ppD1 = pr_param_gaCDM(p,q,tp,T,control)
+    if(control$verbose) cat("\r Generating random starting values for model parameters ... (Done!) \n")
+  }
+  if(is.null(start.par)){
+    ppD1 = pr_param_gaCDM(p,q,tp,F,control)
+  }
 
   if(!is.null(control$start.zn) && is.matrix(control$start.zn)){
     zn = control$start.zn
@@ -296,27 +321,22 @@ gapmCDM_findqCV <- function(Ytrain, Ytest, q, control = list(), ...){
     if(control$verbose) cat("\r Generating random starting values for latent variables ... (Done!) \n")
   } else if(control$start.zn == "fa") {
     if(control$verbose) cat(" Generating starting values for latent variables via Factor Analysis ...")
-    tmp = suppressWarnings(psych::fa(r = Ytrain, nfactors = q, cor = "tet", fm = "ml", rotate = "oblimin"))
+    tmp = suppressWarnings(psych::fa(r = Ytrain, nfactors = q, cor = "tet", fm = "ml", rotate = "oblimin",
+                                     missing = T))
     zn = tmp$scores
-    if(control$cor.R) pp$R = cor(zn) else pp$R = cov(zn)
+    if(control$cor.R) ppD1$R = cor(zn) else ppD1$R = cov(zn)
     if(control$verbose) cat("\r Generating starting values for latent variables via Factor Analysis ... (Done!) \n")
   }
 
-  p = ncol(Ytrain)
-  tp = length(control$knots) + control$degree
-  ppD1 = pr_param_gaCDM(p,q,tp,F,control)
   if(!is.null(control$seed)) set.seed(control$seed)
-  if(control$verbose) cat(paste0("\n [Train data]"))
+  if(control$verbose) cat(paste0("\n [Training data] \n"))
   fit1 = gapmCDM_fit_rcpp(Y = Ytrain[],A = ppD1$A[],C = ppD1$C[],D = ppD1$D[],mu = ppD1$mu[], R = ppD1$R[], Z = zn[], control = control)
-  bicgapmCDM = fit1$BIC
-  mllkgapmCDM = fit1$llk
-  out1 = gapmCDM_cv_rcpp(Ytrain[], Ytest[],A = fit1$A[],C = fit1$C[],mu = fit1$mu[],R = fit1$R[], Z = zn[], control = control)
-  errCV = out1$CV.error
+  out1 = gapmCDM_cv_rcpp(Ytrain[], Ytest[],A = fit1$A[],C = fit1$C[],mu = fit1$mu[],R = fit1$R[], Z = fit1$Z[], control = control)
   pred = ROCR::prediction(out1$Yhat,out1$Yobs)
   aucCV = unlist(methods::slot(ROCR::performance(pred, "auc"), "y.values"))
 
-  return(list(CV.error = errCV, AUC = aucCV, llk.gapmCDM = mllkgapmCDM, BIC.gapmCDM = bicgapmCDM,
-              cdllk.trace = fit1$cdllk.trace, ar.trace = fit1$ar.trace)) #
+  return(list(CV.error = out1$CV.error, AUC = aucCV, llk.train = fit1$llk,
+              mod.train = fit1))
 }
 
 
@@ -358,7 +378,8 @@ gapmCDM_mllkCV <- function(Ytrain, Ytest, q, control = list(), ...){
     if(control$verbose) cat("\r Generating random starting values for latent variables ... (Done!) \n")
   } else if(control$start.zn == "fa") {
     if(control$verbose) cat(" Generating starting values for latent variables via Factor Analysis ...")
-    tmp = suppressMessages(suppressWarnings(psych::fa(r = Ytrain, nfactors = q, cor = "tet", fm = "ml", rotate = "oblimin")))
+    tmp = suppressMessages(suppressWarnings(psych::fa(r = Ytrain, nfactors = q, cor = "tet", fm = "ml", rotate = "oblimin",
+                                                      missing = T)))
     zn = tmp$scores
     if(control$cor.R) ppD1$R = cor(zn) else ppD1$R = cov(zn)
     if(control$verbose) cat("\r Generating starting values for latent variables via Factor Analysis ... (Done!) \n")
@@ -384,7 +405,8 @@ gapmCDM_mllkCV <- function(Ytrain, Ytest, q, control = list(), ...){
     if(control$verbose) cat("\r Generating random starting values for latent variables ... (Done!) \n")
   } else if(control$start.zn.test == "fa") {
     if(control$verbose) cat(" Generating starting values for latent variables via Factor Analysis ...")
-    tmp = suppressMessages(suppressWarnings(psych::fa(r = Ytest, nfactors = q, cor = "tet", fm = "ml", rotate = "oblimin")))
+    tmp = suppressMessages(suppressWarnings(psych::fa(r = Ytest, nfactors = q, cor = "tet", fm = "ml", rotate = "oblimin",
+                                                      missing = T)))
     zn.test = tmp$scores
     if(control$verbose) cat("\r Generating starting values for latent variables via Factor Analysis ... (Done!) \n")
   }
@@ -451,7 +473,8 @@ apmCDM <- function(data, q, Qmatrix, control = list(), start.par = NULL, ...){
     if(control$verbose) cat("\r Generating random starting values for latent variables ... (Done!) \n")
   } else if(control$start.zn == "fa") {
     if(control$verbose) cat(" Generating starting values for latent variables via Factor Analysis ...")
-    tmp = suppressWarnings(psych::fa(r = data, nfactors = q, cor = "tet", fm = "ml", rotate = "oblimin"))
+    tmp = suppressWarnings(psych::fa(r = data, nfactors = q, cor = "tet", fm = "ml", rotate = "oblimin",
+                                     missing = T))
     zn = tmp$scores
     if(control$cor.R) pp$R = cor(zn) else pp$R = cov(zn)
     if(control$verbose) cat("\r Generating starting values for latent variables via Factor Analysis ... (Done!) \n")
@@ -552,8 +575,8 @@ pmCDM.CV.error <- function(Ytrain, Ytest, Qmatrix,
   controlA$sampler = match.arg(controlA$sampler, c("ULA","MALA","RWMH"))
   controlB$sampler = controlA$sampler
   controlA$basis = match.arg(controlA$basis, c("is","bs","pwl"))
-  if(controlA$basis == "pwl" & is.null(controlA$degree)) controlA$degree = 1
-  if(controlA$basis != "pwl" & is.null(controlA$degree)) controlA$degree = 2
+  if(is.null(controlA$degree) && controlA$basis == "pwl") controlA$degree = 1
+  if(is.null(controlA$degree) && controlA$basis != "pwl") controlA$degree = 2
 
   if(controlA$verbose) cat(paste0("\n Generating random starting values for latent variables q = ", q," ..."))
   zn = mvtnorm::rmvnorm(nrow(Ytrain),mean = rep(0,q))
@@ -583,6 +606,75 @@ pmCDM.CV.error <- function(Ytrain, Ytest, Qmatrix,
   return(list(CV.error.A = errCVA, AUC.A = aucCVA,
               CV.error.B = errCVB, AUC.B = aucCVB)) #
 }
+
+#' Find number of latent variables (q) using cross-validation (PM-ACDM)
+#'
+#' @param Ytrain Matrix with observed binary entries to train the model. Missing entries (\code{Ytest}) coded as \code{NA}.
+#' @param Ytest Matrix with observed binary entries to test the model. All entries are \code{NA} but the missing in \code{Ytrain}.
+#' @param q Number of latent variables.
+#' @param control List of control parameters (see 'Details').
+#' @param ... Further arguments to be passed to \code{control}.
+#'
+#' @return A list with components:
+#' \itemize{
+#'  \item \code{CV.error}: Cross-validation error.
+#'  \item \code{AUC}: Area under the curve error.
+#'  \item \code{llk.gapmCDM} Marginal log-likelihood for the gapmCDM model
+#' }
+#' @details Define CV.error.
+#' @author Camilo Cárdenas-Hurtado (\email{c.a.cardenas-hurtado@@lse.ac.uk}).
+#' @export
+apmCDM_findqCV <- function(Ytrain, Ytest, q, control = list(), start.par = NULL, ...){
+
+  control = pr_control_aCDM(control,...)
+  if(control$verbose) cat(" Model: Additive PM-CDM \n")
+  control$sampler = match.arg(control$sampler, c("ULA","MALA","RWMH"))
+  p = ncol(data)
+  Apat = as.matrix(expand.grid(lapply(1:q,function(x) c(0,1))))
+
+  if(is.list(start.par)){
+    if(length(start.par) != 3) stop("Argument `start.par' needs to be a list with elements `G', `mu', and `R'.")
+    ppD1 = start.par
+    if(nrow(ppD1$G) != ncol(data)) stop("Matrix `start.par$G' mismatch rows with p.")
+    if(length(ppD1$mu) != nrow(ppD1$R)) stop("Lenght of `start.par$mu' and nrows of `start.par$R' differ.")
+  }
+  if(!is.null(start.par) && (start.par == "random")){
+    if(control$verbose) cat(" Generating random starting values for model parameters ...")
+    control$iden.R = T
+    if(!is.null(control$seed)) set.seed(control$seed)
+    ppD1 = pr_param_aCDM(p,q,Qmatrix,T,control)
+    if(control$verbose) cat("\r Generating random starting values for model parameters ... (Done!) \n")
+  }
+  if(is.null(start.par)) {
+    ppD1 = pr_param_aCDM(p,q,Qmatrix,F,control)
+  }
+
+  if(!is.null(control$start.zn) && is.matrix(control$start.zn)){
+    zn = control$start.zn
+  } else if(control$start.zn == "random") {
+    if(control$verbose) cat(" Generating random starting values for latent variables ...")
+    zn = mvtnorm::rmvnorm(nrow(data),mean = rep(0,q))
+    if(control$verbose) cat("\r Generating random starting values for latent variables ... (Done!) \n")
+  } else if(control$start.zn == "fa") {
+    if(control$verbose) cat(" Generating starting values for latent variables via Factor Analysis ...")
+    tmp = suppressWarnings(psych::fa(r = data, nfactors = q, cor = "tet", fm = "ml", rotate = "oblimin",
+                                     missing = T))
+    zn = tmp$scores
+    if(control$cor.R) ppD1$R = cor(zn) else ppD1$R = cov(zn)
+    if(control$verbose) cat("\r Generating starting values for latent variables via Factor Analysis ... (Done!) \n")
+  }
+
+  if(!is.null(control$seed)) set.seed(control$seed)
+  if(control$verbose) cat(paste0("\n [Training data] \n"))
+  fit1 = gapmCDM_fit_rcpp(Y = Ytrain[],A = ppD1$A[],C = ppD1$C[],D = ppD1$D[],mu = ppD1$mu[], R = ppD1$R[], Z = zn[], control = control)
+  out1 = gapmCDM_cv_rcpp(Ytrain[], Ytest[],A = fit1$A[],C = fit1$C[],mu = fit1$mu[],R = fit1$R[], Z = fit1$Z[], control = control)
+  pred = ROCR::prediction(out1$Yhat,out1$Yobs)
+  aucCV = unlist(methods::slot(ROCR::performance(pred, "auc"), "y.values"))
+
+  return(list(CV.error = out1$CV.error, AUC = aucCV, llk.train = fit1$llk,
+              mod.train = fit1))
+}
+
 
 #' Find number of latent variables (q) using cross-validated MLLK (PM-ACDM)
 #'
@@ -618,7 +710,8 @@ apmCDM_mllkCV <- function(Ytrain, Ytest, q, Qmatrix, control = list(), ...){
     if(control$verbose) cat("\r Generating random starting values for latent variables ... (Done!) \n")
   } else if(control$start.zn == "fa") {
     if(control$verbose) cat(" Generating starting values for latent variables via Factor Analysis ...")
-    tmp = suppressMessages(suppressWarnings(psych::fa(r = Ytrain, nfactors = q, cor = "tet", fm = "ml", rotate = "oblimin")))
+    tmp = suppressMessages(suppressWarnings(psych::fa(r = Ytrain, nfactors = q, cor = "tet", fm = "ml", rotate = "oblimin",
+                                                      missing = T)))
     zn = tmp$scores
     if(control$cor.R) ppD1$R = cor(zn) else ppD1$R = cov(zn)
     if(control$verbose) cat("\r Generating starting values for latent variables via Factor Analysis ... (Done!) \n")
@@ -646,13 +739,14 @@ apmCDM_mllkCV <- function(Ytrain, Ytest, q, Qmatrix, control = list(), ...){
     if(control$verbose) cat("\r Generating random starting values for latent variables ... (Done!) \n")
   } else if(control$start.zn.test == "fa") {
     if(control$verbose) cat(" Generating starting values for latent variables via Factor Analysis ...")
-    tmp = suppressMessages(suppressWarnings(psych::fa(r = Ytest, nfactors = q, cor = "tet", fm = "ml", rotate = "oblimin")))
+    tmp = suppressMessages(suppressWarnings(psych::fa(r = Ytest, nfactors = q, cor = "tet", fm = "ml", rotate = "oblimin",
+                                                      missing = T)))
     zn.test = tmp$scores
     if(control$verbose) cat("\r Generating starting values for latent variables via Factor Analysis ... (Done!) \n")
   }
 
-  testmllk = fy_aCDM_IS(Ytest[],G = fit1$G[],Qmatrix = Qmatrix, Apat = Apat[],
+  testmllk = fy_aCDM_IS(Ytest[],G = fit1$G[],Qmatrix = Qmatrix[], Apat = Apat[],
                         mu = fit1$mu[],R = fit1$R[], Z = zn.test[],
-                        pM = fit1$posMu, pR = fit1$posR[], control = control)
+                        pM = fit1$posMu[], pR = fit1$posR[], control = control)
   return(list(mllk.test = testmllk, mllk.train = fit1$llk, train.mod = fit1)) #
 }

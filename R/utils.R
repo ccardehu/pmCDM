@@ -35,7 +35,7 @@ logLik.pmCDM <- function(mod, Y = NULL, control = list(), ...){
       q = ncol(mod$R)
       Apat = as.matrix(expand.grid(lapply(1:q,function(x) c(0,1))))
       llk = fy_aCDM_IS(Y = Y[],G = mod$G[], Qmatrix = mod$Qmatrix, Apat = Apat[],
-                       mu = mod$mu[],R = mod$R[],
+                       mu = mod$mu[],R = mod$R[],Z = mod$Z[],
                        pM = mod$posMu[], pR = mod$posR[], control = control)
       return(llk)
     }

@@ -196,39 +196,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// fy_gapmCDM
-double fy_gapmCDM(arma::mat& Y, arma::mat& A, arma::cube& C, arma::vec& mu, arma::mat& R, Rcpp::List& control);
-RcppExport SEXP _pmCDM_fy_gapmCDM(SEXP YSEXP, SEXP ASEXP, SEXP CSEXP, SEXP muSEXP, SEXP RSEXP, SEXP controlSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::mat& >::type Y(YSEXP);
-    Rcpp::traits::input_parameter< arma::mat& >::type A(ASEXP);
-    Rcpp::traits::input_parameter< arma::cube& >::type C(CSEXP);
-    Rcpp::traits::input_parameter< arma::vec& >::type mu(muSEXP);
-    Rcpp::traits::input_parameter< arma::mat& >::type R(RSEXP);
-    Rcpp::traits::input_parameter< Rcpp::List& >::type control(controlSEXP);
-    rcpp_result_gen = Rcpp::wrap(fy_gapmCDM(Y, A, C, mu, R, control));
-    return rcpp_result_gen;
-END_RCPP
-}
-// fy_aCDM
-double fy_aCDM(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apat, arma::vec& mu, arma::mat& R, Rcpp::List& control);
-RcppExport SEXP _pmCDM_fy_aCDM(SEXP YSEXP, SEXP GSEXP, SEXP QmatrixSEXP, SEXP ApatSEXP, SEXP muSEXP, SEXP RSEXP, SEXP controlSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::mat& >::type Y(YSEXP);
-    Rcpp::traits::input_parameter< arma::mat& >::type G(GSEXP);
-    Rcpp::traits::input_parameter< arma::mat& >::type Qmatrix(QmatrixSEXP);
-    Rcpp::traits::input_parameter< arma::mat& >::type Apat(ApatSEXP);
-    Rcpp::traits::input_parameter< arma::vec& >::type mu(muSEXP);
-    Rcpp::traits::input_parameter< arma::mat& >::type R(RSEXP);
-    Rcpp::traits::input_parameter< Rcpp::List& >::type control(controlSEXP);
-    rcpp_result_gen = Rcpp::wrap(fy_aCDM(Y, G, Qmatrix, Apat, mu, R, control));
-    return rcpp_result_gen;
-END_RCPP
-}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_pmCDM_fy_gapmCDM_IS", (DL_FUNC) &_pmCDM_fy_gapmCDM_IS, 9},
@@ -242,8 +209,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pmCDM_D2C", (DL_FUNC) &_pmCDM_D2C, 1},
     {"_pmCDM_genpar", (DL_FUNC) &_pmCDM_genpar, 6},
     {"_pmCDM_genpar_aCDM", (DL_FUNC) &_pmCDM_genpar_aCDM, 2},
-    {"_pmCDM_fy_gapmCDM", (DL_FUNC) &_pmCDM_fy_gapmCDM, 6},
-    {"_pmCDM_fy_aCDM", (DL_FUNC) &_pmCDM_fy_aCDM, 7},
     {NULL, NULL, 0}
 };
 

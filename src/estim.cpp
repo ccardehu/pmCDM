@@ -6,9 +6,8 @@
 using namespace Rcpp;
 using namespace arma;
 
-Rcpp::List newAC_PGD(Rcpp::List& d1AC, arma::mat& Aold, arma::cube& Cold, double ss){
+Rcpp::List newAC_PGD(Rcpp::List& d1AC, arma::mat& Aold, arma::cube& Cold, double& ssA, double& ssC){
    arma::vec d1ac = d1AC["grad"];
-   // arma::mat d2ac = d1AC["hess"];
    arma::umat iA = d1AC["iA"];
    arma::ucube iC = d1AC["iC"];
    arma::mat Anew(arma::size(Aold));
@@ -17,27 +16,26 @@ Rcpp::List newAC_PGD(Rcpp::List& d1AC, arma::mat& Aold, arma::cube& Cold, double
    const int q = Cold.n_slices;
    for(int i = 0; i < p; i ++){
       arma::uvec idA = iA.row(i).t();
-      // arma::vec tA = Aold.row(i).t() + ss*d2ac(idA,idA)*d1ac(idA);
-      arma::vec tA = Aold.row(i).t() + ss*d1ac(idA);
+      arma::vec tA = Aold.row(i).t() + ssA*d1ac(idA);
       Anew.row(i) = ProxD(tA).t();
       for(int j = 0; j < q; j++){
          if(Aold(i,j) > arma::datum::eps){
             arma::uvec idC = iC.slice(j).row(i).t();
-            // arma::vec tC = Cold.slice(j).row(i).t() + ss*d2ac(idC,idC)*d1ac(idC);
-            arma::vec tC = Cold.slice(j).row(i).t() + ss*d1ac(idC);
+            arma::vec tC = Cold.slice(j).row(i).t() + ssC*d1ac(idC);
             Cnew.slice(j).row(i) = ProxD(tC).t();
          } else {
             Cnew.slice(j).row(i) = Cold.slice(j).row(i);
          }
       }
    }
+   if(!Anew.is_finite()) Anew = Aold;
+   if(!Cnew.is_finite()) Cnew = Cold;
    return Rcpp::List::create(Rcpp::Named("A") = Anew,
                              Rcpp::Named("C") = Cnew);
 }
 
-Rcpp::List newAD_PGD(Rcpp::List& d1AD,arma::mat& Aold, arma::cube& Dold, double ss){
+Rcpp::List newAD_PGD(Rcpp::List& d1AD,arma::mat& Aold, arma::cube& Dold, double& ssA, double& ssC){
    arma::vec d1ad = d1AD["grad"];
-   // arma::mat d2ad = d1AC["hess"];
    arma::umat iA = d1AD["iA"];
    arma::ucube iD = d1AD["iD"];
    arma::mat Anew(arma::size(Aold));
@@ -46,25 +44,25 @@ Rcpp::List newAD_PGD(Rcpp::List& d1AD,arma::mat& Aold, arma::cube& Dold, double 
    const int q = Dold.n_slices;
    for(int i = 0; i < p; i ++){
       arma::uvec idA = iA.row(i).t();
-      // arma::vec tA = Aold.row(i).t() + ss*d2ad(idA,idA)*d1ad(idA);
-      arma::vec tA = Aold.row(i).t() + ss*d1ad(idA);
+      arma::vec tA = Aold.row(i).t() + ssA*d1ad(idA);
       Anew.row(i) = ProxD(tA).t();
       for(int j = 0; j < q; j++){
          if(Aold(i,j) > arma::datum::eps){
             arma::uvec idD = iD.slice(j).row(i).t();
-            // arma::vec tD = Dold.slice(j).row(i).t() + ss*d2ad(idD,idD)*d1ad(idD);
-            arma::vec tD = Dold.slice(j).row(i).t() + ss*d1ad(idD);
+            arma::vec tD = Dold.slice(j).row(i).t() + ssC*d1ad(idD);
             Dnew.slice(j).row(i) = tD.t();
          } else {
             Dnew.slice(j).row(i) = Dold.slice(j).row(i);
          }
       }
    }
+   if(!Anew.is_finite()) Anew = Aold;
+   if(!Dnew.is_finite()) Dnew = Dold;
    return Rcpp::List::create(Rcpp::Named("A") = Anew,
                              Rcpp::Named("D") = Dnew);
 }
 
-Rcpp::List newAC_MD(Rcpp::List& d1AC,arma::mat& Aold, arma::cube& Cold, double ss){
+Rcpp::List newAC_MD(Rcpp::List& d1AC,arma::mat& Aold, arma::cube& Cold, double& ssA, double& ssC){
    arma::vec d1ac = d1AC["grad"];
    arma::umat iA = d1AC["iA"];
    arma::ucube iC = d1AC["iC"];
@@ -74,21 +72,23 @@ Rcpp::List newAC_MD(Rcpp::List& d1AC,arma::mat& Aold, arma::cube& Cold, double s
    const int q = Cold.n_slices;
    for(int i = 0; i < p; i ++){
       arma::uvec idA = iA.row(i).t();
-      arma::vec tA = Aold.row(i).t() % arma::exp(ss*d1ac(idA));
+      arma::vec tA = Aold.row(i).t() % arma::exp(ssA*d1ac(idA));
       const double l1A = arma::sum(arma::abs(tA));
       Anew.row(i) = arma::clamp(tA.t() / l1A, arma::datum::eps, 1.0-arma::datum::eps);
       for(int j = 0; j < q; j++){
          arma::uvec idC = iC.slice(j).row(i).t();
-         arma::vec tC = Cold.slice(j).row(i).t() % arma::exp(ss*d1ac(idC));
+         arma::vec tC = Cold.slice(j).row(i).t() % arma::exp(ssC*d1ac(idC));
          const double l1C = arma::sum(arma::abs(tC));
          Cnew.slice(j).row(i) = arma::clamp(tC.t() / l1C, arma::datum::eps, 1.0-arma::datum::eps);
       }
    }
+   if(!Anew.is_finite()) Anew = Aold;
+   if(!Cnew.is_finite()) Cnew = Cold;
    return Rcpp::List::create(Rcpp::Named("A") = Anew,
                              Rcpp::Named("C") = Cnew);
 }
 
-Rcpp::List newAD_MD(Rcpp::List& d1AD,arma::mat& Aold, arma::cube& Dold, double ss){ // , arma::vec& d2adV
+Rcpp::List newAD_MD(Rcpp::List& d1AD,arma::mat& Aold, arma::cube& Dold, double& ssA, double& ssC){ // , arma::vec& d2adV
    arma::vec d1ad = d1AD["gs"];
    arma::umat iA = d1AD["iA"];
    arma::ucube iD = d1AD["iD"];
@@ -98,24 +98,26 @@ Rcpp::List newAD_MD(Rcpp::List& d1AD,arma::mat& Aold, arma::cube& Dold, double s
    const int q = Dold.n_slices;
    for(int i = 0; i < p; i ++){
       arma::uvec idA = iA.row(i).t();
-      arma::vec tA = Aold.row(i).t() % arma::exp(ss*d1ad(idA));
+      arma::vec tA = Aold.row(i).t() % arma::exp(ssA*d1ad(idA));
       const double l1A = arma::sum(arma::abs(tA));
       Anew.row(i) = arma::clamp(tA.t() / l1A, arma::datum::eps, 1.0-arma::datum::eps);
       for(int j = 0; j < q; j++){
          if(Aold(i,j) > std::sqrt(arma::datum::eps)){
             arma::uvec idD = iD.slice(j).row(i).t();
-            arma::vec tD = Dold.slice(j).row(i).t() + ss*d1ad(idD);
+            arma::vec tD = Dold.slice(j).row(i).t() + ssC*d1ad(idD);
             Dnew.slice(j).row(i) = tD.t();
          } else {
             Dnew.slice(j).row(i) = Dold.slice(j).row(i);
          }
       }
    }
+   if(!Anew.is_finite()) Anew = Aold;
+   if(!Dnew.is_finite()) Dnew = Dold;
    return Rcpp::List::create(Rcpp::Named("A") = Anew,
                              Rcpp::Named("D") = Dnew);
 }
 
-Rcpp::List newAD_MD_hess(Rcpp::List& d1AD,arma::mat& Aold, arma::cube& Dold, double ss){ // , arma::vec& d2adV
+Rcpp::List newAD_MD_hess(Rcpp::List& d1AD,arma::mat& Aold, arma::cube& Dold, double& ssA, double& ssC){ // , arma::vec& d2adV
    arma::vec d1ad = d1AD["gs"];
    arma::mat d2ad = d1AD["hs"];
    arma::vec d2adV = -arma::diagvec(d2ad);
@@ -127,24 +129,26 @@ Rcpp::List newAD_MD_hess(Rcpp::List& d1AD,arma::mat& Aold, arma::cube& Dold, dou
    const int q = Dold.n_slices;
    for(int i = 0; i < p; i ++){
       arma::uvec idA = iA.row(i).t();
-      arma::vec tA = Aold.row(i).t() % arma::exp(ss*d1ad(idA));
+      arma::vec tA = Aold.row(i).t() % arma::exp(ssA*d1ad(idA));
       const double l1A = arma::sum(arma::abs(tA));
       Anew.row(i) = arma::clamp(tA.t() / l1A, arma::datum::eps, 1.0-arma::datum::eps);
       for(int j = 0; j < q; j++){
          if(Aold(i,j) > std::sqrt(arma::datum::eps)){
             arma::uvec idD = iD.slice(j).row(i).t();
-            arma::vec tD = Dold.slice(j).row(i).t() + ss*d1ad(idD)/(d2adV(idD) + std::pow(arma::datum::eps,0.5));
+            arma::vec tD = Dold.slice(j).row(i).t() + ssC*d1ad(idD)/(d2adV(idD) + std::pow(arma::datum::eps,0.5));
             Dnew.slice(j).row(i) = tD.t();
          } else {
             Dnew.slice(j).row(i) = Dold.slice(j).row(i);
          }
       }
    }
+   if(!Anew.is_finite()) Anew = Aold;
+   if(!Dnew.is_finite()) Dnew = Dold;
    return Rcpp::List::create(Rcpp::Named("A") = Anew,
                              Rcpp::Named("D") = Dnew);
 }
 
-Rcpp::List newAD_MD_adam(Rcpp::List& d1AD,arma::mat& Aold, arma::cube& Dold, double ss,
+Rcpp::List newAD_MD_adam(Rcpp::List& d1AD,arma::mat& Aold, arma::cube& Dold, double& ssA, double& ssC,
                          int iter, arma::vec& mt, arma::vec& vt, Rcpp::List& control){
    arma::vec d1ad = d1AD["gs"];
    double b1 = control["adam.b1"];
@@ -160,13 +164,13 @@ Rcpp::List newAD_MD_adam(Rcpp::List& d1AD,arma::mat& Aold, arma::cube& Dold, dou
    const int q = Dold.n_slices;
    for(int i = 0; i < p; i ++){
       arma::uvec idA = iA.row(i).t();
-      arma::vec tA = Aold.row(i).t() % arma::exp(ss*d1ad(idA));
+      arma::vec tA = Aold.row(i).t() % arma::exp(ssA*d1ad(idA));
       const double l1A = arma::sum(arma::abs(tA));
       Anew.row(i) = arma::clamp(tA.t() / l1A, arma::datum::eps, 1.0-arma::datum::eps);
       for(int j = 0; j < q; j++){
          if(Aold(i,j) > std::sqrt(arma::datum::eps)){
             arma::uvec idD = iD.slice(j).row(i).t();
-            arma::vec tD = Dold.slice(j).row(i).t() + ss*d1adADAM(idD);
+            arma::vec tD = Dold.slice(j).row(i).t() + ssC*d1adADAM(idD);
             Dnew.slice(j).row(i) = tD.t();
          } else {
             Dnew.slice(j).row(i) = Dold.slice(j).row(i);
@@ -175,11 +179,13 @@ Rcpp::List newAD_MD_adam(Rcpp::List& d1AD,arma::mat& Aold, arma::cube& Dold, dou
    }
    mt = mtN;
    vt = vtN;
+   if(!Anew.is_finite()) Anew = Aold;
+   if(!Dnew.is_finite()) Dnew = Dold;
    return Rcpp::List::create(Rcpp::Named("A") = Anew,
                              Rcpp::Named("D") = Dnew);
 }
 
-arma::vec newM(arma::vec& mu, arma::mat& R, arma::mat& Z, double ss){
+arma::vec newM(arma::vec& mu, arma::mat& R, arma::mat& Z, double& ss){
    const int np = mu.size();
    const int n = Z.n_rows;
    arma::vec gM(np, arma::fill::zeros);
@@ -191,7 +197,7 @@ arma::vec newM(arma::vec& mu, arma::mat& R, arma::mat& Z, double ss){
    return(mu);
 }
 
-arma::mat newL(arma::vec& mu, arma::mat& L, arma::mat& Z, double ss, bool cor){
+arma::mat newL(arma::vec& mu, arma::mat& L, arma::mat& Z, double& ss, bool cor){
    const int n = Z.n_rows;
    const int q = L.n_rows;
    arma::uvec idL = arma::trimatl_ind(arma::size(L));
@@ -229,19 +235,20 @@ arma::mat newL(arma::vec& mu, arma::mat& L, arma::mat& Z, double ss, bool cor){
    return(L);
 }
 
-Rcpp::List newpMR(arma::mat& Z, arma::mat& posM, arma::cube& posR, int iter){
+void newpMR(arma::mat& Z, arma::mat& posM, arma::cube& posR, int iter){
    const int n = Z.n_rows;
-   arma::mat posMo(posM);
-   arma::cube posRo(posR);
+   const int p = Z.n_cols;
+   arma::rowvec diff_row(p);
+   arma::mat outer_prod(p, p);
    double t1 = 1.0/(iter + 1.0);
    double t2 = iter/(iter + 1.0);
    double t3 = iter/std::pow(iter + 1.0,2);
-   posMo = posM + t1*(Z-posM);
-   for(int i = 0; i < n; i++){
-      posRo.slice(i) = t2*posR.slice(i) + t3*((Z.row(i) - posM.row(i)).t()*(Z.row(i) - posM.row(i))); // - posR.slice(i)
+   for(int i = 0; i < n; i++) {
+      diff_row = Z.row(i) - posM.row(i);
+      outer_prod = diff_row.t() * diff_row;
+      posR.slice(i) = t3 * outer_prod + t2 * posR.slice(i);
    }
-   return Rcpp::List::create(Rcpp::Named("posM") = posMo,
-                             Rcpp::Named("posR") = posRo);
+   posM += t1 * (Z - posM);
 }
 
 arma::mat newZ_ULA(arma::mat& Y, arma::mat& PI,arma::mat& Z, arma::mat& A, arma::cube& C,
@@ -343,7 +350,7 @@ arma::mat newZ_RWMH(arma::mat& Y, arma::mat& PI,arma::mat& Z, arma::mat& A, arma
    return Zout;
 }
 
-arma::mat newG_MD(Rcpp::List& d1G, arma::mat& Gold, double ss){
+arma::mat newG_MD(Rcpp::List& d1G, arma::mat& Gold, double& ss){
    arma::vec d1g = d1G["grad"];
    arma::umat iG = d1G["iG"];
    arma::mat Gnew(arma::size(Gold));
@@ -444,6 +451,7 @@ double fy_gapmCDM_IS(arma::mat& Y, arma::mat& A, arma::cube& C,
    const int nsim = control["nsim"];
    arma::vec knots = control["knots"];
    const bool verbose = control["verbose"];
+   const int every = control["verbose.every"];
    const std::string basis = Rcpp::as<std::string>(control["basis"]);
    const std::string sampler = Rcpp::as<std::string>(control["sampler"]);
 
@@ -461,14 +469,15 @@ double fy_gapmCDM_IS(arma::mat& Y, arma::mat& A, arma::cube& C,
    if(n != n1){
       pM.set_size(n,q);
       pM.fill(0.0);
+      arma::mat pMi(arma::size(pM));
       pR.set_size(q,q,n);
       pR.fill(0.0);
-      cube2eye(pR);
-      arma::mat pMn(arma::size(pM));
-      arma::cube pRn(arma::size(pR));
+      arma::cube pRi(arma::size(pR));
+      cube2eye(pRi);
       double h = control["h"];
       double ssZ;
       arma::mat Zsam(Z);
+      Zsim.fill(0.0);
       if(verbose) Rcpp::Rcout << " Sampling latent attributes for test data ";
       for(int ii = 1; ii <= nsim; ii++){
          arma::mat Usam = Z2U(Zsam);
@@ -493,13 +502,14 @@ double fy_gapmCDM_IS(arma::mat& Y, arma::mat& A, arma::cube& C,
             ssZ = h * std::pow(q,-1);
             Zn = newZ_RWMH(Y,piH,Zsam,A,C,mu,R,ar,ssZ,knots,degree,basis);
          }
-         Rcpp::List MRn = newpMR(Zn,pM,pR,ii);
-         pMn = Rcpp::as<arma::mat>(MRn["posM"]);
-         pRn = Rcpp::as<arma::cube>(MRn["posR"]);
+         newpMR(Zn,pMi,pRi,ii);
          Zsam = Zn;
-         pM = pMn;
-         pR = pRn;
-         if(verbose & (ii % 10 == 0)){
+         if(ii > 0.5*nsim){
+            Zsim += Zn;
+            pM += pMi;
+            pR += pRi;
+         }
+         if(verbose & (ii % every == 0)){
             if(sampler == "ULA"){
                Rcpp::Rcout << "\r Sampling latent attributes for test data (iteration: " << ii << ") ... ";
             } else {
@@ -507,6 +517,9 @@ double fy_gapmCDM_IS(arma::mat& Y, arma::mat& A, arma::cube& C,
             }
          }
       }
+      Zsim /= 0.5*nsim;
+      pM /= 0.5*nsim;
+      pR /= 0.5*nsim;
       if(verbose){
          if(sampler == "ULA"){
             Rcpp::Rcout << "\r Sampling latent attributes for test data (iteration: " << nsim << ") ... (Done!)";
@@ -522,7 +535,7 @@ double fy_gapmCDM_IS(arma::mat& Y, arma::mat& A, arma::cube& C,
    if(verbose) Rcpp::Rcout << "\n Calculating marginal log-likelihood (via IS, iteration: ";
    for(int ii = 0; ii < nsim; ii++){
       if (ii % 2 == 0) Rcpp::checkUserInterrupt();
-      if(verbose & (ii % 10 == 0)) Rcpp::Rcout << "\r Calculating marginal log-likelihood (via IS, iteration: " << std::setw(5) << ii << ") ... ";
+      if(verbose & (ii % every == 0)) Rcpp::Rcout << "\r Calculating marginal log-likelihood (via IS, iteration: " << std::setw(5) << ii << ") ... ";
       arma::mat Usim = Z2U(Zsim);
       if(basis == "is"){
          spObj = SpU_isp(Usim,knots,degree);
@@ -533,7 +546,7 @@ double fy_gapmCDM_IS(arma::mat& Y, arma::mat& A, arma::cube& C,
       }
       arma::mat piH = prob(A,C,isMo);
       Eobj.col(ii) = arma::sum(fyz(Y,piH),1) + fz(Zsim,mu,R) - fz_IS(Zsim,pM,pRf);
-      Zsim = rmvNorm_IS(pM,pR);
+      Zsim = rmvNorm_IS(pM,pRf);
    }
    arma::vec maxEobj(n);
    for(int m = 0; m < n; m++){
@@ -554,6 +567,7 @@ double fy_aCDM_IS(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apa
 
    const int nsim = control["nsim"];
    const bool verbose = control["verbose"];
+   const int every = control["verbose.every"];
    const std::string sampler = Rcpp::as<std::string>(control["sampler"]);
 
    const int n = Y.n_rows;
@@ -567,14 +581,15 @@ double fy_aCDM_IS(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apa
    if(n != n1){
       pM.set_size(n,q);
       pM.fill(0.0);
+      arma::mat pMi(arma::size(pM));
       pR.set_size(q,q,n);
       pR.fill(0.0);
-      cube2eye(pR);
-      arma::mat pMn(arma::size(pM));
-      arma::cube pRn(arma::size(pR));
+      arma::cube pRi(arma::size(pR));
+      cube2eye(pRi);
       double h = control["h"];
       double ssZ;
       arma::mat Zsam(Z);
+      Zsim.fill(0.0);
       if(verbose) Rcpp::Rcout << " Sampling latent attributes for test data ";
       for(int ii = 1; ii <= nsim; ii++){
          arma::mat Usam = Z2U(Zsam);
@@ -590,13 +605,14 @@ double fy_aCDM_IS(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apa
             ssZ = h * std::pow(q,-1);
             Zn = newZ_RWMH_aCDM(Y,piH,Zsam,G,Apat,mu,R,ssZ,ar);
          }
-         Rcpp::List MRn = newpMR(Zn,pM,pR,ii);
-         pMn = Rcpp::as<arma::mat>(MRn["posM"]);
-         pRn = Rcpp::as<arma::cube>(MRn["posR"]);
+         newpMR(Zn,pMi,pRi,ii);
          Zsam = Zn;
-         pM = pMn;
-         pR = pRn;
-         if(verbose & (ii % 10 == 0)){
+         if(ii > 0.5*nsim){
+            Zsim += Zn;
+            pM += pMi;
+            pR += pRi;
+         }
+         if(verbose & (ii % every == 0)){
             if(sampler == "ULA"){
                Rcpp::Rcout << "\r Sampling latent attributes for test data (iteration: " << ii << ") ... ";
             } else {
@@ -604,6 +620,9 @@ double fy_aCDM_IS(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apa
             }
          }
       }
+      Zsim /= 0.5*nsim;
+      pM /= 0.5*nsim;
+      pR /= 0.5*nsim;
       if(verbose){
          if(sampler == "ULA"){
             Rcpp::Rcout << "\r Sampling latent attributes for test data (iteration: " << nsim << ") ... (Done!)";
@@ -619,11 +638,11 @@ double fy_aCDM_IS(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apa
    if(verbose) Rcpp::Rcout << "\n Calculating marginal log-likelihood (via IS, iteration: ";
    for(int ii = 0; ii < nsim; ii++){
       if (ii % 2 == 0) Rcpp::checkUserInterrupt();
-      if(verbose & (ii % 10 == 0)) Rcpp::Rcout << "\r Calculating marginal log-likelihood (via IS, iteration: " << std::setw(5) << ii << ") ... ";
+      if(verbose & (ii % every == 0)) Rcpp::Rcout << "\r Calculating marginal log-likelihood (via IS, iteration: " << std::setw(5) << ii << ") ... ";
       arma::mat Usim = Z2U(Zsim);
       arma::mat piH = prob_aCDM(G,Usim,Apat);
       Eobj.col(ii) = arma::sum(fyz(Y,piH),1) + fz(Zsim,mu,R) - fz_IS(Zsim,pM,pRf);
-      Zsim = rmvNorm_IS(pM,pR);
+      Zsim = rmvNorm_IS(pM,pRf);
    }
    arma::vec maxEobj(n);
    for(int m = 0; m < n; m++){

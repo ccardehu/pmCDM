@@ -52,16 +52,20 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
   const int window = control["window"];
   const unsigned int degree = control["degree"];
   const double epsStop = control["stop.eps"];
-  const double epsTune = control["tune.eps"];
+  const double gTune = control["tune.gamma"];
   const bool verbose = control["verbose"];
+  const int every = control["verbose.every"];
   const bool stopFLAG = control["stop.atconv"];
   const bool traceFLAG = control["return.trace"];
   const bool corFLAG = control["cor.R"];
   const std::string sampler = Rcpp::as<std::string>(control["sampler"]);
   const std::string basis = Rcpp::as<std::string>(control["basis"]);
   const std::string algo = Rcpp::as<std::string>(control["algorithm"]);
-  double h = control["h"];
-  double g = control["gamma"];
+  const double h = control["h"];
+  const double g = control["gamma"];
+  const double gA = control["gamma.A"];
+  const double gC = control["gamma.CD"];
+  const double gR = control["gamma.R"];
   arma::vec knots = control["knots"];
 
   const int n = Y.n_rows;
@@ -78,9 +82,9 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
   arma::mat Rout(arma::size(R));
   arma::mat spM(n,q*np), spD(n,q*np);
   arma::cube spObj(n,q*np,2);
-  arma::cube pR(q,q,n), pRn(q,q,n), pRout(q,q,n);
+  arma::cube pR(q,q,n), pRout(q,q,n);
   cube2eye(pR);
-  arma::mat pM(arma::size(Z)), pMn(arma::size(Z)), pMout(arma::size(Z));
+  arma::mat pM(arma::size(Z)), pMout(arma::size(Z));
   arma::uvec Rld = arma::trimatl_ind(arma::size(R),-1);
 
   const int tp = A.size() + C.size() + mu.size() + Rld.size();
@@ -95,20 +99,25 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
   // arma::mat hS(etp,etp);
   int iter = 1;
   double ar = 0;
+  double ssA;
+  double ssC;
+  double ssR;
+  double ssZ;
 
   for(int ii = 1; ii <= iterlim + tunelim; ii++){
     if (ii % 2 == 0) Rcpp::checkUserInterrupt();
     arma::mat U = Z2U(Z);
-    double ssAC;
-    double ssZ;
     if(ii <= tunelim){
-      ssAC = epsTune/n ;
-      if(verbose & (ii % 10 == 0)) Rcpp::Rcout << "\r Iteration: " << std::setw(5) << ii << " (tuning phase)";
+      ssA = gTune/n * gA;
+      ssC = gTune/n * gC;
+      ssR = gTune/n * gR;
+      if(verbose & (ii % every == 0)) Rcpp::Rcout << "\r Iteration: " << std::setw(5) << ii << " (tuning phase)";
       ar = 0 ;
       ssZ = h ;
     } else {
-      // ssAC = g/n * std::pow(iter,-.833) ;
-      ssAC = g/n * std::pow(iter,-.51) ;
+      ssA = g/n * gA * std::pow(iter,-.51) ;
+      ssC = g/n * gC * std::pow(iter,-.51) ;
+      ssR = g/n * gR * std::pow(iter,-.51) ;
       if(sampler == "ULA"){
         ssZ = h * std::pow(iter,-.333) ;
       } else if(sampler == "MALA"){
@@ -123,7 +132,7 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
       spD = spObj.slice(1);
       PI = prob(A,C,spM);
       Rcpp::List gac = d1AC(Y,PI,spM,A,C);
-      Rcpp::List ACn = newAC_MD(gac,A,C,ssAC);
+      Rcpp::List ACn = newAC_MD(gac,A,C,ssA, ssC);
       An = Rcpp::as<arma::mat>(ACn["A"]);
       Cn = Rcpp::as<arma::cube>(ACn["C"]);
     } else {
@@ -141,14 +150,14 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
       // vS = (ii-1)/ii*vS + 1/ii*arma::clamp(vSt,1e-3,1e3);
       Rcpp::List ADn ;
       if(algo == "GD"){
-        ADn = newAD_MD(gad,A,D,ssAC);
+        ADn = newAD_MD(gad,A,D,ssA, ssC);
       } else if(algo == "ADAM"){
-        ADn = newAD_MD_adam(gad,A,D,ssAC,iter,mt,vt,control);
+        ADn = newAD_MD_adam(gad,A,D,ssA,ssC,iter,mt,vt,control);
       } else if(algo == "mixed"){
-        if(ii <= tunelim + 0.75*iterlim){
-          ADn = newAD_MD(gad,A,D,ssAC);
+        if(ii <= tunelim + 0.5*iterlim){
+          ADn = newAD_MD(gad,A,D,ssA,ssC);
         } else {
-          ADn = newAD_MD_adam(gad,A,D,ssAC,iter,mt,vt,control);
+          ADn = newAD_MD_adam(gad,A,D,ssA,ssC,iter,mt,vt,control);
         }
       }
       An = Rcpp::as<arma::mat>(ADn["A"]);
@@ -156,7 +165,7 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
       Cn = D2C(Dn);
     }
     // arma::vec Mn = newM(mu,R,Z,ssAC);
-    arma::mat Ln = newL(mu,L,Z,ssAC,corFLAG);
+    arma::mat Ln = newL(mu,L,Z,ssR,corFLAG);
     arma::mat Zn(arma::size(Z));
     if(ii <= tunelim){
       Zn = Z;
@@ -168,10 +177,8 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
       } else if(sampler == "RWMH"){
         Zn = newZ_RWMH(Y,PI,Z,A,C,mu,R,ar,ssZ,knots,degree,basis);
       }
+      newpMR(Zn,pM,pR,iter);
     }
-    Rcpp::List MRn = newpMR(Zn,pM,pR,iter);
-    pMn = Rcpp::as<arma::mat>(MRn["posM"]);
-    pRn = Rcpp::as<arma::cube>(MRn["posR"]);
     A = An;
     C = Cn;
     D = Dn;
@@ -179,8 +186,6 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
     L = Ln;
     R = Ln*Ln.t();
     Z = Zn;
-    pM = pMn;
-    pR = pRn;
 
     for(int t1 = window - 1; t1 > 0; t1--){
       theta.row(t1) = theta.row(t1 - 1);
@@ -203,7 +208,7 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
       double cdll = fyzll + fzll;
       artrace(iter/10-1) = ar/(n*iter);
 
-      if(verbose){
+      if(verbose & (iter % every == 0)){
         if(iter >= burnin){
           if(sampler == "ULA"){
             Rcpp::Rcout << "\r Iteration: " << std::setw(5) << iter << " (estimation phase, CD-llk: " << std::to_string(cdll) <<
@@ -239,9 +244,7 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
       pMout += pM;
       pRout += pR;
     }
-    if(ii > tunelim){
-      iter++;
-    }
+    if(ii > tunelim) iter++;
   }
   Aout /= (iter - burnin);
   Cout /= (iter - burnin);
@@ -251,7 +254,6 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
   Zout /= (iter - burnin);
   pMout /= (iter - burnin);
   pRout /= (iter - burnin);
-
 
   const int nsim = control["nsim"];
   double llk(0), BIC(0), AIC(0);
@@ -311,6 +313,7 @@ Rcpp::List gapmCDM_cv_rcpp(arma::mat& Ytrain, arma::mat& Ytest, arma::mat& A, ar
   const double h = control["h"];
   arma::vec knots = control["knots"];
   const bool verbose = control["verbose"];
+  const int every = control["verbose.every"];
   const std::string sampler = Rcpp::as<std::string>(control["sampler"]);
   const std::string basis = Rcpp::as<std::string>(control["basis"]);
 
@@ -319,12 +322,16 @@ Rcpp::List gapmCDM_cv_rcpp(arma::mat& Ytrain, arma::mat& Ytest, arma::mat& A, ar
   const int q = R.n_cols;
   const int np = knots.size() + degree ;
 
+  arma::mat Zn(arma::size(Z));
   arma::mat piH(n,p);
   arma::uvec isNA = arma::find_nan(Ytrain);
   const int nmis = isNA.n_elem;
 
   arma::mat spM(n,q*np), spD(n,q*np);
   arma::cube spObj(n,q*np,2);
+
+  double ar = 0;
+  if(verbose) Rcpp::Rcout << "\n CV iteration: " ;
 
   for(int ii = 1; ii <= nsim; ii++){
     if (ii % 2 == 0) Rcpp::checkUserInterrupt();
@@ -339,21 +346,21 @@ Rcpp::List gapmCDM_cv_rcpp(arma::mat& Ytrain, arma::mat& Ytest, arma::mat& A, ar
       spD = spObj.slice(1);
     }
     arma::mat PI = prob(A,C,spM);
-    arma::mat Zn(arma::size(Z));
-    double ar = 0;
     if(sampler == "ULA"){
       double ssZ = h * std::pow(ii,-.33) ;
       Zn = newZ_ULA(Ytrain,PI,Z,A,C,mu,R,spD,ssZ);
+      if(verbose & (ii % every == 0)) Rcpp::Rcout << "\r CV iteration: " << ii  << " ... ";
     } else if(sampler == "MALA"){
       double ssZ = h * std::pow(q,-.33) ;
       Zn = newZ_MALA(Ytrain,PI,Z,A,C,mu,R,ar,spD,ssZ,knots,degree,basis);
+      if(verbose & (ii % every == 0)) Rcpp::Rcout << "\r CV iteration: " << ii  << ", AR (" << sampler << "): " << std::to_string(ar/(n*ii)) << " ... ";
     } else if(sampler == "RWMH"){
       double ssZ = h * std::pow(q,-1) ;
       Zn = newZ_RWMH(Ytrain,PI,Z,A,C,mu,R,ar,ssZ,knots,degree,basis);
+      if(verbose & (ii % every == 0)) Rcpp::Rcout << "\r CV iteration: " << ii  << ", AR (" << sampler << "): " << std::to_string(ar/(n*ii)) << " ... ";
     }
     piH += PI;
     Z = Zn;
-    if(verbose & (ii % 10 == 0)) Rcpp::Rcout << "\r CV iteration: " << ii ;
   }
   piH /= nsim;
   double out = 0;
@@ -362,7 +369,13 @@ Rcpp::List gapmCDM_cv_rcpp(arma::mat& Ytrain, arma::mat& Ytest, arma::mat& A, ar
     out += Ytest(id)*std::max(arma::datum::log_min, std::log(piH(id))) + (1-Ytest(id))*std::max(arma::datum::log_min, std::log(1-piH(id)));
   }
   out /= -nmis;
-  if(verbose) Rcpp::Rcout << "\r CV iteration: " << nsim << " ... [CV-error: " << std::to_string(out) << "]\n" ;
+  if(verbose){
+    if(sampler == "ULA"){
+      Rcpp::Rcout << "\r CV iteration: " << nsim << " ... [CV-error: " << std::to_string(out) << "]\n" ;
+    } else {
+      Rcpp::Rcout << "\r CV iteration: " << nsim  << ", AR (" << sampler << "): " << std::to_string(ar/(n*nsim)) << " ... ";
+    }
+  }
   arma::vec outYhat = piH(isNA);
   arma::vec outYtst = Ytest(isNA);
   return Rcpp::List::create(Rcpp::Named("Yhat") = Rcpp::wrap(outYhat),
@@ -399,14 +412,18 @@ Rcpp::List apmCDM_fit_rcpp(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma:
   const int tunelim = control["tune.lim"];
   const int window = control["window"];
   const double epsStop = control["stop.eps"];
-  const double epsTune = control["tune.eps"];
+  const double gTune = control["tune.gamma"];
   const bool verbose = control["verbose"];
+  const int every = control["verbose.every"];
   const bool stopFLAG = control["stop.atconv"];
   const bool traceFLAG = control["return.trace"];
   const bool corFLAG = control["cor.R"];
   const std::string sampler = Rcpp::as<std::string>(control["sampler"]);
-  double h = control["h"];
-  double g = control["gamma"];
+  const double h = control["h"];
+  const double g = control["gamma"];
+  double gG = control["gamma.G"];
+  double gM = control["gamma.mu"];
+  double gR = control["gamma.R"];
 
   const int n = Y.n_rows;
   const int p = Y.n_cols;
@@ -418,11 +435,9 @@ Rcpp::List apmCDM_fit_rcpp(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma:
   arma::mat Gout(arma::size(G)), Gn(arma::size(G));
   arma::vec Mout(arma::size(mu)), Mn(arma::size(mu));
   arma::mat Rout(arma::size(R));
-  // arma::mat posR(q,q);
-  arma::cube pR(q,q,n), pRn(q,q,n), pRout(q,q,n);
+  arma::cube pR(q,q,n), pRout(q,q,n);
   cube2eye(pR);
-  // arma::rowvec posM(q);
-  arma::mat pM(arma::size(Z)), pMn(arma::size(Z)), pMout(arma::size(Z));
+  arma::mat pM(arma::size(Z)), pMout(arma::size(Z));
 
   arma::uvec Rld = arma::trimatl_ind(arma::size(R),-1);
 
@@ -437,24 +452,29 @@ Rcpp::List apmCDM_fit_rcpp(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma:
   arma::vec artrace(iterlim/10);
   int iter = 1;
   double ar = 0;
+  double ssG;
+  double ssM;
+  double ssR;
+  double ssZ;
 
   for(int ii = 1; ii <= iterlim + tunelim; ii++){
     if (ii % 2 == 0) Rcpp::checkUserInterrupt();
     arma::mat U = Z2U(Z);
-    double ssG;
-    double ssZ;
     if(ii <= tunelim){
-      ssG = epsTune/n ;
-      if(verbose & (ii % 10 == 0)) Rcpp::Rcout << "\r Iteration: " << std::setw(5) << ii << " (tuning phase)";
+      ssG = gTune/n * gG;
+      ssM = gTune/n * gM;
+      ssR = gTune/n * gR;
+      if(verbose & (ii % every == 0)) Rcpp::Rcout << "\r Iteration: " << std::setw(5) << ii << " (tuning phase)";
       ar = 0 ;
       ssZ = h ;
     } else {
-      // ssG = g/n * std::pow(iter,-.833) ;
-      ssG = g/n * std::pow(iter,-.51) ;
+      ssG = g/n * gG * std::pow(iter,-.51) ;
+      ssM = g/n * gM * std::pow(iter,-.51) ;
+      ssR = g/n * gR * std::pow(iter,-.51) ;
       if(sampler == "ULA"){
-        ssZ = h * std::pow(iter,-.333) ; // * std::pow(q,-.333)
+        ssZ = h * std::pow(iter,-.333) ;
       } else if(sampler == "MALA"){
-        ssZ = h * std::pow(q,-.333) ; // * std::pow(iter,-.333)
+        ssZ = h * std::pow(q,-.333) ;
       } else if(sampler == "RWMH"){
         ssZ = h * std::pow(q,-1) ;
       }
@@ -462,8 +482,8 @@ Rcpp::List apmCDM_fit_rcpp(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma:
     PI = prob_aCDM(G,U,Apat);
     Rcpp::List dG = d1G(Y,U,PI,G,Apat,Qmatrix);
     arma::mat Gn = newG_MD(dG,G,ssG);
-    arma::vec Mn = newM(mu,R,Z,ssG);
-    arma::mat Ln = newL(mu,L,Z,ssG,corFLAG);
+    arma::vec Mn = newM(mu,R,Z,ssM);
+    arma::mat Ln = newL(mu,L,Z,ssR,corFLAG);
     arma::mat Zn(arma::size(Z));
     if(ii <= tunelim){
       Zn = Z;
@@ -475,17 +495,13 @@ Rcpp::List apmCDM_fit_rcpp(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma:
       } else if(sampler == "RWMH"){
         Zn = newZ_RWMH_aCDM(Y,PI,Z,G,Apat,mu,R,ssZ,ar);
       }
+      newpMR(Zn,pM,pR,iter);
     }
-    Rcpp::List MRn = newpMR(Zn,pM,pR,iter);
-    pMn =  Rcpp::as<arma::mat>(MRn["posM"]);
-    pRn =  Rcpp::as<arma::cube>(MRn["posR"]);
     G = Gn;
     mu = Mn;
     L = Ln;
     R = Ln*Ln.t();
     Z = Zn;
-    pM = pMn;
-    pR = pRn;
 
     for(int t1 = window - 1; t1 > 0; t1--){
       theta.row(t1) = theta.row(t1 - 1);
@@ -508,7 +524,7 @@ Rcpp::List apmCDM_fit_rcpp(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma:
       double cdll = fyzll + fzll;
       artrace(iter/10-1) = ar/(n*iter);
 
-      if(verbose){
+      if(verbose & (iter % every == 0)){
         if(iter >= burnin){
           if(sampler == "ULA"){
             Rcpp::Rcout << "\r Iteration: " << std::setw(5) << iter << " (estimation phase, CD-llk: " << std::to_string(cdll) <<
@@ -542,12 +558,9 @@ Rcpp::List apmCDM_fit_rcpp(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma:
       pMout += pM;
       pRout += pR;
     }
-    if(ii > tunelim){
-      iter++;
-      // if(iter == iterlim*0.75) itAC = 1;
-      // if(iter % 2000 == 0) itG = 1;
-    }
+    if(ii > tunelim) iter++;
   }
+
   Gout /= (iter - burnin);
   Mout /= (iter - burnin);
   Rout /= (iter - burnin);
@@ -606,35 +619,40 @@ Rcpp::List apmCDM_cv_rcpp(arma::mat& Ytrain, arma::mat& Ytest, arma::mat& G,
   const int nsim = control["nsim"];
   const double h = control["h"];
   const bool verbose = control["verbose"];
+  const int every = control["verbose.every"];
   const std::string sampler = Rcpp::as<std::string>(control["sampler"]);
 
   const int n = Ytrain.n_rows;
   const int p = Ytrain.n_cols;
   const int q = mu.n_elem;
 
+  arma::mat Zn(arma::size(Z));
   arma::mat piH(n,p);
   arma::uvec isNA = arma::find_nan(Ytrain);
   const int nmis = isNA.n_elem;
+
+  double ar = 0;
+  if(verbose) Rcpp::Rcout << "\n CV iteration: " ;
 
   for(int ii = 1; ii <= nsim; ii++){
     if (ii % 2 == 0) Rcpp::checkUserInterrupt();
     arma::mat U = Z2U(Z);
     arma::mat PI = prob_aCDM(G,U,Apat);
-    arma::mat Zn(arma::size(Z));
-    double ar = 0;
     if(sampler == "ULA"){
       double ssZ = h * std::pow(ii,-.33) ;
       Zn = newZ_ULA_aCDM(Ytrain,PI,Z,Qmatrix,Apat,G,mu,R,ssZ);
+      if(verbose & (ii % every == 0)) Rcpp::Rcout << "\r CV iteration: " << ii  << " ... ";
     } else if(sampler == "MALA"){
       double ssZ = h * std::pow(q,-.33) ;
       Zn = newZ_MALA_aCDM(Ytrain,PI,Z,Qmatrix,Apat,G,mu,R,ssZ,ar);
+      if(verbose & (ii % every == 0)) Rcpp::Rcout << "\r CV iteration: " << ii  << ", AR (" << sampler << "): " << std::to_string(ar/(n*ii)) << " ... ";
     } else if(sampler == "RWMH"){
       double ssZ = h * std::pow(q,-1) ;
       Zn = newZ_RWMH_aCDM(Ytrain,PI,Z,G,Apat,mu,R,ssZ,ar);
+      if(verbose & (ii % every == 0)) Rcpp::Rcout << "\r CV iteration: " << ii  << ", AR (" << sampler << "): " << std::to_string(ar/(n*ii)) << " ... ";
     }
     piH += PI;
     Z = Zn;
-    if(verbose & (ii % 10 == 0)) Rcpp::Rcout << "\r CV iteration: " << ii ;
   }
   piH /= nsim;
   double out = 0;
@@ -643,7 +661,13 @@ Rcpp::List apmCDM_cv_rcpp(arma::mat& Ytrain, arma::mat& Ytest, arma::mat& G,
     out += Ytest(id)*std::max(arma::datum::log_min, std::log(piH(id))) + (1-Ytest(id))*std::max(arma::datum::log_min, std::log(1-piH(id)));
   }
   out /= -nmis;
-  if(verbose) Rcpp::Rcout << "\r CV iteration: " << nsim << " ... [CV-error: " << std::to_string(out) << "]\n" ;
+  if(verbose){
+    if(sampler == "ULA"){
+      Rcpp::Rcout << "\r CV iteration: " << nsim << " ... [CV-error: " << std::to_string(out) << "]\n" ;
+    } else {
+      Rcpp::Rcout << "\r CV iteration: " << nsim  << ", AR (" << sampler << "): " << std::to_string(ar/(n*nsim)) << " ... ";
+    }
+  }
   arma::vec outYhat = piH(isNA);
   arma::vec outYtst = Ytest(isNA);
   return Rcpp::List::create(Rcpp::Named("Yhat") = Rcpp::wrap(outYhat),
