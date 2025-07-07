@@ -4,7 +4,7 @@
 \alias{apmCDM_mllkCV}
 \title{Find number of latent variables (q) using cross-validated MLLK (PM-ACDM)}
 \usage{
-apmCDM_mllkCV(Ytrain, Ytest, q, Qmatrix, control = list(), ...)
+apmCDM_mllkCV(Ytrain, Ytest, q, control = list(), ...)
 }
 \arguments{
 \item{Ytrain}{Matrix with observed binary entries to train the model. Missing entries (\code{Ytest}) coded as \code{NA}.}

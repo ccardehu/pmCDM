@@ -1,17 +1,23 @@
 #ifndef ESTIM_H
 #define ESTIM_H
 
-Rcpp::List newAC_PGD(Rcpp::List& d1AC, arma::mat& Aold, arma::cube& Cold, double ss);
+Rcpp::List newAC_PGD(Rcpp::List& d1AC, arma::mat& Aold, arma::mat& Qmatrix,
+                     arma::cube& Cold, double ss);
 
-Rcpp::List newAD_PGD(Rcpp::List& d1AD, arma::mat& Aold, arma::cube& Dold, double ss);
+Rcpp::List newAD_PGD(Rcpp::List& d1AD, arma::mat& Aold, arma::mat& Qmatrix,
+                     arma::cube& Dold, double ss);
 
-Rcpp::List newAC_MD(Rcpp::List& d1AC, arma::mat& Aold, arma::cube& Cold, double& ssA, double& ssC);
+Rcpp::List newAC_MD(Rcpp::List& d1AC, arma::mat& Aold, arma::mat& Qmatrix,
+                    arma::cube& Cold, double& ssA, double& ssC);
 
-Rcpp::List newAD_MD(Rcpp::List& d1AD, arma::mat& Aold, arma::cube& Dold, double& ssA, double& ssC);
+Rcpp::List newAD_MD(Rcpp::List& d1AD, arma::mat& Aold, arma::mat& Qmatrix,
+                    arma::cube& Dold, double& ssA, double& ssC);
 
-Rcpp::List newAD_MD_hess(Rcpp::List& d1AD,arma::mat& Aold, arma::cube& Dold, double& ssA, double& ssC); // , arma::vec& d2adV
+Rcpp::List newAD_MD_hess(Rcpp::List& d1AD,arma::mat& Aold, arma::mat& Qmatrix,
+                         arma::cube& Dold, double& ssA, double& ssC);
 
-Rcpp::List newAD_MD_adam(Rcpp::List& d1AD,arma::mat& Aold, arma::cube& Dold, double& ssA, double& ssC,
+Rcpp::List newAD_MD_adam(Rcpp::List& d1AD,arma::mat& Aold, arma::mat& Qmatrix,
+                         arma::cube& Dold, double& ssA, double& ssC,
                          int iter, arma::vec& mt, arma::vec& vt, Rcpp::List& control);
 
 arma::vec newM(arma::vec& mu, arma::mat& R, arma::mat& Z, double& ss);

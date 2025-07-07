@@ -4,7 +4,7 @@
 \alias{apmCDM_sim}
 \title{Simulate data from an Partial Mastery Additive Cognitive Diagnosis Model (PM-ACDM).}
 \usage{
-apmCDM_sim(n, p, q, Qmatrix, control = list(), start.par = NULL, ...)
+apmCDM_sim(n, p, q, control = list(), start.par = NULL, ...)
 }
 \arguments{
 \item{n}{Number of simulated entries.}
@@ -12,8 +12,6 @@ apmCDM_sim(n, p, q, Qmatrix, control = list(), start.par = NULL, ...)
 \item{p}{Number of observed (binary) variables.}
 
 \item{q}{Number of latent variables.}
-
-\item{Qmatrix}{Q-matrix}
 
 \item{control}{List of control parameters (see 'Details').}
 

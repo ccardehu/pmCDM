@@ -37,8 +37,8 @@ D2C <- function(D) {
     .Call(`_pmCDM_D2C`, D)
 }
 
-genpar <- function(p, q, probSparse, knots, degree, basis) {
-    .Call(`_pmCDM_genpar`, p, q, probSparse, knots, degree, basis)
+genpar <- function(p, q, tp, probSparse, basis) {
+    .Call(`_pmCDM_genpar`, p, q, tp, probSparse, basis)
 }
 
 genpar_aCDM <- function(Qmatrix, maxG0) {

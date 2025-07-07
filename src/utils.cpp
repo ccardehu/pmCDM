@@ -23,19 +23,20 @@ arma::mat Z2U(arma::mat& Z){
 // [[Rcpp::export]]
 arma::cube D2C(arma::cube& D){
   const int p = D.n_rows;
-  const int tp = D.n_cols;
+  // const int tp = D.n_cols;
   const int q = D.n_slices;
   arma::cube out(arma::size(D));
   for(int j = 0; j < q; j++){
     arma::mat Dq = arma::exp(D.slice(j));
-    arma::mat tmp(p,tp);
+    // arma::mat tmp(p,tp);
     for(int i = 0; i < p; i++){
       arma::rowvec Dqi = Dq.row(i);
       double denp = arma::accu(Dqi);
       arma::rowvec nump = arma::cumsum(Dqi)/denp;
-      tmp.row(i) = nump;
+      // tmp.row(i) = nump;
+      out.slice(j).row(i) = nump;
     }
-    out.slice(j) = tmp;
+    // out.slice(j) = tmp;
   }
   return(out);
 }
@@ -170,14 +171,12 @@ arma::mat dUA(arma::mat& U, arma::rowvec& Ak){
 }
 
 // [[Rcpp::export]]
-Rcpp::List genpar(const int p, const int q,
+Rcpp::List genpar(const int p, const int q, const int tp,
                   const double probSparse,
-                  arma::vec& knots, const int degree,
                   const std::string& basis){
-  const int np = knots.size();
   arma::mat A(p,q);
-  arma::cube C(p,np+degree,q);
-  arma::cube D(p,np+degree,q);
+  arma::cube C(p,tp,q);
+  arma::cube D(p,tp,q);
   arma::vec sparse(p);
   for(int i = 0; i < p; i++){
     sparse(i) = R::rbinom(1,probSparse);
@@ -195,19 +194,19 @@ Rcpp::List genpar(const int p, const int q,
     }
     if(basis == "is"){
       for(int j = 0; j < q; j++){
-        arma::rowvec tC(np + degree + 1);
+        arma::rowvec tC(tp+1);
         tC.tail(1) = 1;
-        Rcpp::NumericVector tCRcpp = Rcpp::runif(np + degree - 1);
+        Rcpp::NumericVector tCRcpp = Rcpp::runif(tp-1);
         tC(span(1,tCRcpp.size())) = arma::sort(Rcpp::as<arma::rowvec>(tCRcpp));
         tC = arma::diff(tC);
         C.slice(j).row(i) = tC;
       }
     } else {
       for(int j = 0; j < q; j++){
-        Rcpp::NumericVector tDRcpp = Rcpp::rnorm(np + degree - 1L, 0.0, 2.0); // np + degree + 1
+        Rcpp::NumericVector tDRcpp = Rcpp::rnorm(tp-1L, 0.0, 2.0); // tp + 1
         arma::rowvec tD0 = Rcpp::as<arma::rowvec>(tDRcpp); // arma::sort()
-        arma::rowvec tD1(np + degree);
-        tD1(arma::span(0,np + degree - 2L)) = tD0;
+        arma::rowvec tD1(tp);
+        tD1(arma::span(0,tp-2L)) = tD0;
         D.slice(j).row(i) = tD1;
       }
     }

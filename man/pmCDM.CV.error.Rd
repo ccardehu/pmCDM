@@ -4,22 +4,12 @@
 \alias{pmCDM.CV.error}
 \title{Compare GaPM-CDM vs. PM-aCDM via negative cross-entropy error.}
 \usage{
-pmCDM.CV.error(
-  Ytrain,
-  Ytest,
-  Qmatrix,
-  q,
-  controlA = list(),
-  controlB = list(),
-  ...
-)
+pmCDM.CV.error(Ytrain, Ytest, q, controlA = list(), controlB = list(), ...)
 }
 \arguments{
 \item{Ytrain}{Matrix with observed binary entries to train the model. Missing entries (\code{Ytest}) coded as \code{NA}.}
 
 \item{Ytest}{Matrix with observed binary entries to test the model. All entries are \code{NA} but the missing in \code{Ytrain}.}
-
-\item{Qmatrix}{Q-matrix for aPM-CDM.}
 
 \item{q}{Number of latent variables.}
 

@@ -30,6 +30,7 @@ gapmCDM <- function(data,q,control = list(), start.par = NULL, ...){
   control$algorithm = match.arg(control$algorithm, c("GD","ADAM","mixed"))
   if(is.null(control$degree) && control$basis == "pwl") control$degree = 1
   if(is.null(control$degree) && control$basis != "pwl") control$degree = 2
+  if(is.null(control$Qmatrix)) control$Qmatrix = matrix(1,p,q)
   p = ncol(data)
   tp = length(control$knots) + control$degree
 
@@ -38,7 +39,7 @@ gapmCDM <- function(data,q,control = list(), start.par = NULL, ...){
     pp = start.par
     if(nrow(pp$A) != ncol(data)) stop("Matrix `start.par$A' mismatch rows with p.")
     if(ncol(pp$C) != ncol(pp$D)) stop("Mismatch columns in `start.par$C' and `start.par$D'.")
-    if(ncol(pp$C) != length(control$knots) + control$degree) stop("Matrix `start.par$C' mismatch rows with length(control$knots) + control$degree")
+    if(ncol(pp$C) != tp) stop("Matrix `start.par$C' mismatch rows with length(control$knots) + control$degree (+1 if intercept)")
     if(length(pp$mu) != nrow(pp$R)) stop("Lenght of `start.par$mu' and nrows of `start.par$R' differ.")
   }
   if(!is.null(start.par) && !is.list(start.par) && (start.par == "random")){
@@ -106,11 +107,12 @@ gapmCDM <- function(data,q,control = list(), start.par = NULL, ...){
 #' @author Camilo Cárdenas-Hurtado (\email{c.a.cardenas-hurtado@@lse.ac.uk}).
 #' @export
 gapmCDM_sim <- function(n, p, q, control = list(),
-                      start.par = NULL, ...){
+                        start.par = NULL, ...){
   control = pr_controlsim_gaCDM(control,q,...)
   control$basis = match.arg(control$basis, c("is","bs","pwl"))
   if(is.null(control$degree) && control$basis == "pwl") control$degree = 1
   if(is.null(control$degree) && control$basis != "pwl") control$degree = 2
+  if(is.null(control$Qmatrix)) control$Qmatrix = matrix(1,p,q)
   tp = length(control$knots) + control$degree
   if(!is.null(start.par) && !is.list(start.par) && (length(start.par) != 5))
     stop("Argument `start.par' needs to be a list with elements `A', `C', `D', `mu', and `R'.")
@@ -118,8 +120,9 @@ gapmCDM_sim <- function(n, p, q, control = list(),
     pp = start.par
     if(nrow(pp$A) != p) stop("Matrix `start.par$A' mismatch rows with p.")
     if(ncol(pp$C) != ncol(pp$D)) stop("Mismatch columns in `start.par$C' and `start.par$D'.")
-    if(ncol(pp$C) != length(control$knots) + control$degree) stop("Matrix `start.par$C' mismatch rows with length(control$knots) + control$degree")
+    if(ncol(pp$C) != tp) stop("Matrix `start.par$C' mismatch rows with length(control$knots) + control$degree (+1 if intercept)")
     if(length(pp$mu) != nrow(pp$R)) stop("Lenght of `start.par$mu' and nrows of `start.par$R' differ.")
+    if(rowSums(pp$A * control$Qmatrix) != p) stop("Check configuration of `start.par$A' and `control$Qmatrix'.")
   } else {
     pp = pr_param_gaCDM(p,q,tp,T,control)
   }
@@ -290,6 +293,7 @@ gapmCDM_findqCV <- function(Ytrain, Ytest, q, control = list(), start.par = NULL
   control$algorithm = match.arg(control$algorithm, c("GD","ADAM","mixed"))
   if(is.null(control$degree) && control$basis == "pwl") control$degree = 1
   if(is.null(control$degree) && control$basis != "pwl") control$degree = 2
+  if(is.null(control$Qmatrix)) control$Qmatrix = matrix(1,p,q)
   p = ncol(data)
   tp = length(control$knots) + control$degree
 
@@ -298,7 +302,7 @@ gapmCDM_findqCV <- function(Ytrain, Ytest, q, control = list(), start.par = NULL
     ppD1 = start.par
     if(nrow(ppD1$A) != ncol(data)) stop("Matrix `start.par$A' mismatch rows with p.")
     if(ncol(ppD1) != ncol(ppD1$D)) stop("Mismatch columns in `start.par$C' and `start.par$D'.")
-    if(ncol(ppD1$C) != length(control$knots) + control$degree) stop("Matrix `start.par$C' mismatch rows with length(control$knots) + control$degree")
+    if(ncol(ppD1$C) != tp) stop("Matrix `start.par$C' mismatch rows with length(control$knots) + control$degree (+1 if intercept)")
     if(length(ppD1$mu) != nrow(ppD1$R)) stop("Lenght of `start.par$mu' and nrows of `start.par$R' differ.")
   }
   if(!is.null(start.par) && !is.list(start.par) && (start.par == "random")){
@@ -365,6 +369,7 @@ gapmCDM_mllkCV <- function(Ytrain, Ytest, q, control = list(), ...){
   control$basis = match.arg(control$basis, c("is","bs","pwl"))
   if(is.null(control$degree) && control$basis == "pwl") control$degree = 1
   if(is.null(control$degree) && control$basis != "pwl") control$degree = 2
+  if(is.null(control$Qmatrix)) control$Qmatrix = matrix(1,p,q)
 
   p = ncol(Ytrain)
   tp = length(control$knots) + control$degree
@@ -420,7 +425,6 @@ gapmCDM_mllkCV <- function(Ytrain, Ytest, q, control = list(), ...){
 #'
 #' @param data Matrix \code{(n x p)} with binary entries. Missing data should be coded as \code{NA}.
 #' @param q Number of latent variables.
-#' @param Qmatrix Q-matrix.
 #' @param control List of control parameters (see 'Details').
 #' @param start.par (optional) For simulation use. List of size 4 with starting model parameters (A, C, D, R).
 #' @param ... Further arguments to be passed to \code{control}.
@@ -440,9 +444,10 @@ gapmCDM_mllkCV <- function(Ytrain, Ytest, q, control = list(), ...){
 #' @details Test
 #' @author Camilo Cárdenas-Hurtado (\email{c.a.cardenas-hurtado@@lse.ac.uk}).
 #' @export
-apmCDM <- function(data, q, Qmatrix, control = list(), start.par = NULL, ...){
+apmCDM <- function(data, q, control = list(), start.par = NULL, ...){
 
   control = pr_control_aCDM(control,...)
+  if(is.null(control$Qmatrix)) control$Qmatrix = matrix(1,p,q)
   if(control$verbose) cat(" Model: Additive PM-CDM \n")
   control$sampler = match.arg(control$sampler, c("ULA","MALA","RWMH"))
   p = ncol(data)
@@ -458,11 +463,11 @@ apmCDM <- function(data, q, Qmatrix, control = list(), start.par = NULL, ...){
     if(control$verbose) cat(" Generating random starting values for model parameters ...")
     control$iden.R = T
     if(!is.null(control$seed)) set.seed(control$seed)
-    pp = pr_param_aCDM(p,q,Qmatrix,T,control)
+    pp = pr_param_aCDM(p,q,T,control)
     if(control$verbose) cat("\r Generating random starting values for model parameters ... (Done!) \n")
   }
   if(is.null(start.par)) {
-    pp = pr_param_aCDM(p,q,Qmatrix,F,control)
+    pp = pr_param_aCDM(p,q,F,control)
   }
 
   if(!is.null(control$start.zn) && is.matrix(control$start.zn)){
@@ -481,7 +486,7 @@ apmCDM <- function(data, q, Qmatrix, control = list(), start.par = NULL, ...){
   }
 
   if(!is.null(control$seed)) set.seed(control$seed)
-  out <- apmCDM_fit_rcpp(Y = data[], G = pp$G[], Qmatrix = Qmatrix[], Apat = Apat[], mu = pp$mu[], R = pp$R[], Z= zn[], control = control)
+  out <- apmCDM_fit_rcpp(Y = data[], G = pp$G[], Qmatrix = control$Qmatrix[], Apat = Apat[], mu = pp$mu[], R = pp$R[], Z= zn[], control = control)
   colnames(out$PI) <- rownames(out$G) <- colnames(data)
   colnames(out$G) <- c("(Intercept)",paste0("Z",1:q))
   colnames(out$Z) <- paste0("Z",1:q)
@@ -489,7 +494,7 @@ apmCDM <- function(data, q, Qmatrix, control = list(), start.par = NULL, ...){
   if(control$return.trace){
     colnames(out$cdllk.trace) <- c("fz","fyz")
     Gnames <- paste0("G",apply(expand.grid(paste0("j",1:p),paste0("k",0:q)),1,paste,collapse = "."))
-    Gnames <- Gnames[which(cbind(1,Qmatrix) != 0)]
+    Gnames <- Gnames[which(cbind(1,control$Qmatrix) != 0)]
     Mnames <- paste0("mu",1:q)
     Rnames <- paste0("R",apply(which(lower.tri(diag(q)) == T,arr.ind = T),1,paste0,collapse = ""))
     colnames(out$theta.trace) <- c(Gnames,Mnames,Rnames)
@@ -504,7 +509,6 @@ apmCDM <- function(data, q, Qmatrix, control = list(), start.par = NULL, ...){
 #' @param n Number of simulated entries.
 #' @param p Number of observed (binary) variables.
 #' @param q Number of latent variables.
-#' @param Qmatrix Q-matrix
 #' @param control List of control parameters (see 'Details').
 #' @param start.par (optional) List of size 3 with starting model parameters (G, mu, R).
 #' @param ... Further arguments to be passed to \code{control}.
@@ -519,21 +523,22 @@ apmCDM <- function(data, q, Qmatrix, control = list(), start.par = NULL, ...){
 #' @details Test
 #' @author Camilo Cárdenas-Hurtado (\email{c.a.cardenas-hurtado@@lse.ac.uk}).
 #' @export
-apmCDM_sim <- function(n, p, q, Qmatrix, control = list(),
+apmCDM_sim <- function(n, p, q, control = list(),
                         start.par = NULL, ...){
   control = pr_controlsim_aCDM(control,q,...)
+  if(is.null(control$Qmatrix)) control$Qmatrix = matrix(1,p,q)
   Apat = as.matrix(expand.grid(lapply(1:q,function(x) c(0,1))))
   if(!is.null(start.par) & !is.list(start.par) & (length(start.par) != 3))
     stop("Argument `start.par' needs to be a list with elements `G', `mu', and `R'.")
   if(!is.null(start.par)){
     pp = start.par
-    if(nrow(pp$G) != nrow(Qmatrix)) stop("Matrix `start.par$G' mismatch rows with Qmatrix.")
+    if(nrow(pp$G) != nrow(control$Qmatrix)) stop("Matrix `start.par$G' mismatch rows with `control$Qmatrix'.")
     if(length(pp$mu) != nrow(pp$R)) stop("Lenght of `start.par$mu' and nrows of `start.par$R' differ.")
   } else {
-    pp = pr_param_aCDM(p,q,Qmatrix,T,control)
+    pp = pr_param_aCDM(p,q,T,control)
   }
   if(!is.null(control$seed)) set.seed(control$seed)
-  out <- apmCDM_sim_rcpp(n,pp$G,Qmatrix,Apat,pp$mu,pp$R)
+  out <- apmCDM_sim_rcpp(n,pp$G,control$Qmatrix,Apat,pp$mu,pp$R)
   out$G <- pp$G
   out$mu <- pp$mu
   out$R <- pp$R
@@ -551,7 +556,6 @@ apmCDM_sim <- function(n, p, q, Qmatrix, control = list(),
 #'
 #' @param Ytrain Matrix with observed binary entries to train the model. Missing entries (\code{Ytest}) coded as \code{NA}.
 #' @param Ytest Matrix with observed binary entries to test the model. All entries are \code{NA} but the missing in \code{Ytrain}.
-#' @param Qmatrix Q-matrix for aPM-CDM.
 #' @param q Number of latent variables.
 #' @param controlA List of control parameters for GaPM-CDM (see 'Details').
 #' @param controlB List of control parameters for aPM-CDM (see 'Details').
@@ -567,8 +571,8 @@ apmCDM_sim <- function(n, p, q, Qmatrix, control = list(),
 #' @details Define CV.error.
 #' @author Camilo Cárdenas-Hurtado (\email{c.a.cardenas-hurtado@@lse.ac.uk}).
 #' @export
-pmCDM.CV.error <- function(Ytrain, Ytest, Qmatrix,
-                           q, controlA = list(), controlB = list(), ...){
+pmCDM.CV.error <- function(Ytrain, Ytest, q,
+                           controlA = list(), controlB = list(), ...){
 
   controlA = pr_control_gaCDM(controlA,...)
   controlB = pr_control_aCDM(controlB,...)
@@ -577,6 +581,8 @@ pmCDM.CV.error <- function(Ytrain, Ytest, Qmatrix,
   controlA$basis = match.arg(controlA$basis, c("is","bs","pwl"))
   if(is.null(controlA$degree) && controlA$basis == "pwl") controlA$degree = 1
   if(is.null(controlA$degree) && controlA$basis != "pwl") controlA$degree = 2
+  if(is.null(controlA$Qmatrix)) controlA$Qmatrix = matrix(1,p,q)
+  if(is.null(controlB$Qmatrix)) controlB$Qmatrix = matrix(1,p,q)
 
   if(controlA$verbose) cat(paste0("\n Generating random starting values for latent variables q = ", q," ..."))
   zn = mvtnorm::rmvnorm(nrow(Ytrain),mean = rep(0,q))
@@ -586,16 +592,16 @@ pmCDM.CV.error <- function(Ytrain, Ytest, Qmatrix,
   tp = length(controlA$knots) + controlA$degree
   Apat = as.matrix(expand.grid(lapply(1:q,function(x) c(0,1))))
   ppDA = pr_param_gaCDM(p,q,tp,F,controlA)
-  ppDB = pr_param_aCDM(p,q,Qmatrix,F,controlB)
+  ppDB = pr_param_aCDM(p,q,F,controlB)
 
   if(controlA$verbose) cat(" Fitting model: Generalized Additive PM-CDM \n")
   fitA = gapmCDM_fit_rcpp(Y = Ytrain[],A = ppDA$A[],C = ppDA$C[],D = ppDA$D[],mu = ppDA$mu[], R = ppDA$R[], Z = zn[], control = controlA)
   if(controlA$verbose) cat(" Fitting model: Additive PM-CDM \n")
-  fitB = apmCDM_fit_rcpp(Y = Ytrain[],G = ppDB$G[], Qmatrix = Qmatrix[], Apat = Apat[], mu = ppDB$mu[], R = ppDB$R[], Z = zn[], control = controlB)
+  fitB = apmCDM_fit_rcpp(Y = Ytrain[],G = ppDB$G[], Qmatrix = controlB$Qmatrix[], Apat = Apat[], mu = ppDB$mu[], R = ppDB$R[], Z = zn[], control = controlB)
   if(controlB$verbose) cat(" CV-Error: Generalized Additive PM-CDM \n")
   outA = gapmCDM_cv_rcpp(Ytrain[], Ytest[],A = fitA$A[],C = fitA$C[],mu = fitA$mu[],R = fitA$R[], Z = zn[], control = controlA)
   if(controlB$verbose) cat(" CV-Error: Additive PM-CDM \n")
-  outB = apmCDM_cv_rcpp(Ytrain[], Ytest[],G = fitB$G[],Qmatrix = Qmatrix[], Apat = Apat[],mu = fitB$mu[],R = fitB$R[], Z = zn[], control = controlB)
+  outB = apmCDM_cv_rcpp(Ytrain[], Ytest[],G = fitB$G[],Qmatrix = controlB$Qmatrix[], Apat = Apat[],mu = fitB$mu[],R = fitB$R[], Z = zn[], control = controlB)
   errCVA = outA$CV.error
   errCVB = outB$CV.error
   predA = ROCR::prediction(outA$Yhat,outA$Yobs)
@@ -629,6 +635,7 @@ apmCDM_findqCV <- function(Ytrain, Ytest, q, control = list(), start.par = NULL,
   control = pr_control_aCDM(control,...)
   if(control$verbose) cat(" Model: Additive PM-CDM \n")
   control$sampler = match.arg(control$sampler, c("ULA","MALA","RWMH"))
+  if(is.null(control$Qmatrix)) control$Qmatrix = matrix(1,p,q)
   p = ncol(data)
   Apat = as.matrix(expand.grid(lapply(1:q,function(x) c(0,1))))
 
@@ -642,11 +649,11 @@ apmCDM_findqCV <- function(Ytrain, Ytest, q, control = list(), start.par = NULL,
     if(control$verbose) cat(" Generating random starting values for model parameters ...")
     control$iden.R = T
     if(!is.null(control$seed)) set.seed(control$seed)
-    ppD1 = pr_param_aCDM(p,q,Qmatrix,T,control)
+    ppD1 = pr_param_aCDM(p,q,T,control)
     if(control$verbose) cat("\r Generating random starting values for model parameters ... (Done!) \n")
   }
   if(is.null(start.par)) {
-    ppD1 = pr_param_aCDM(p,q,Qmatrix,F,control)
+    ppD1 = pr_param_aCDM(p,q,F,control)
   }
 
   if(!is.null(control$start.zn) && is.matrix(control$start.zn)){
@@ -666,8 +673,8 @@ apmCDM_findqCV <- function(Ytrain, Ytest, q, control = list(), start.par = NULL,
 
   if(!is.null(control$seed)) set.seed(control$seed)
   if(control$verbose) cat(paste0("\n [Training data] \n"))
-  fit1 = gapmCDM_fit_rcpp(Y = Ytrain[],A = ppD1$A[],C = ppD1$C[],D = ppD1$D[],mu = ppD1$mu[], R = ppD1$R[], Z = zn[], control = control)
-  out1 = gapmCDM_cv_rcpp(Ytrain[], Ytest[],A = fit1$A[],C = fit1$C[],mu = fit1$mu[],R = fit1$R[], Z = fit1$Z[], control = control)
+  fit1 = apmCDM_fit_rcpp(Y = Ytrain[], G = ppD1$G[], Qmatrix = control$Qmatrix[], Apat = Apat[], mu = ppD1$mu[], R = ppD1$R[], Z= zn[], control = control)
+  out1 = apmCDM_cv_rcpp(Ytrain[], Ytest[], G = fit1$G[], Qmatrix = control$Qmatrix, Apat = Apat[], mu = fit1$mu[],R = fit1$R[], Z = fit1$Z[], control = control)
   pred = ROCR::prediction(out1$Yhat,out1$Yobs)
   aucCV = unlist(methods::slot(ROCR::performance(pred, "auc"), "y.values"))
 
@@ -693,14 +700,15 @@ apmCDM_findqCV <- function(Ytrain, Ytest, q, control = list(), start.par = NULL,
 #' @details Define CV.error.
 #' @author Camilo Cárdenas-Hurtado (\email{c.a.cardenas-hurtado@@lse.ac.uk}).
 #' @export
-apmCDM_mllkCV <- function(Ytrain, Ytest, q, Qmatrix, control = list(), ...){
+apmCDM_mllkCV <- function(Ytrain, Ytest, q, control = list(), ...){
   control = pr_control_aCDM(control,...)
   if(control$verbose) cat(" Model: Additive PM-CDM \n")
   if(control$verbose) cat(paste0("\n [ Training data ] \n\n"))
   control$sampler = match.arg(control$sampler, c("ULA","MALA","RWMH"))
+  if(is.null(control$Qmatrix)) control$Qmatrix = matrix(1,p,q)
 
   p = ncol(Ytrain)
-  ppD1 = pr_param_aCDM(p,q,Qmatrix,F,control)
+  ppD1 = pr_param_aCDM(p,q,F,control)
 
   if(!is.null(control$start.zn) && is.matrix(control$start.zn)){
     zn = control$start.zn
@@ -719,11 +727,11 @@ apmCDM_mllkCV <- function(Ytrain, Ytest, q, Qmatrix, control = list(), ...){
 
   Apat = as.matrix(expand.grid(lapply(1:q,function(x) c(0,1))))
   if(!is.null(control$seed)) set.seed(control$seed)
-  fit1 = apmCDM_fit_rcpp(Y = Ytrain[], G = ppD1$G[], Qmatrix = Qmatrix[], Apat = Apat[], mu = ppD1$mu[], R = ppD1$R[], Z= zn[], control = control)
+  fit1 = apmCDM_fit_rcpp(Y = Ytrain[], G = ppD1$G[], Qmatrix = control$Qmatrix[], Apat = Apat[], mu = ppD1$mu[], R = ppD1$R[], Z= zn[], control = control)
   if(control$return.trace){
     colnames(fit1$cdllk.trace) <- c("fz","fyz")
     Gnames <- paste0("G",apply(expand.grid(paste0("j",1:p),paste0("k",0:q)),1,paste,collapse = "."))
-    Gnames <- Gnames[which(cbind(1,Qmatrix) != 0)]
+    Gnames <- Gnames[which(cbind(1,control$Qmatrix) != 0)]
     Mnames <- paste0("mu",1:q)
     Rnames <- paste0("R",apply(which(lower.tri(diag(q)) == T,arr.ind = T),1,paste0,collapse = ""))
     colnames(fit1$theta.trace) <- c(Gnames,Mnames,Rnames)
@@ -745,7 +753,7 @@ apmCDM_mllkCV <- function(Ytrain, Ytest, q, Qmatrix, control = list(), ...){
     if(control$verbose) cat("\r Generating starting values for latent variables via Factor Analysis ... (Done!) \n")
   }
 
-  testmllk = fy_aCDM_IS(Ytest[],G = fit1$G[],Qmatrix = Qmatrix[], Apat = Apat[],
+  testmllk = fy_aCDM_IS(Ytest[],G = fit1$G[],Qmatrix = control$Qmatrix[], Apat = Apat[],
                         mu = fit1$mu[],R = fit1$R[], Z = zn.test[],
                         pM = fit1$posMu[], pR = fit1$posR[], control = control)
   return(list(mllk.test = testmllk, mllk.train = fit1$llk, train.mod = fit1)) #

@@ -5,6 +5,7 @@ pr_control_gaCDM <- function(control, ...){
               "gamma" = 1, "gamma.A" = 1, "gamma.CD" = 1, "gamma.R" = 1,
               "h" = 1e-2, "tune.gamma" = 1, "return.trace" = F,
               "basis" = "pwl", "degree" = NULL, "knots" = seq(.1,.9,by = 0.1),
+              "Qmatrix" = NULL,
               "cor.R" = T,
               "nsim" = 1e4, "verbose" = T, "verbose.every" = 10,
               "seed" = NULL, "mu" = NULL, "R" = NULL, "sampler" = "ULA",
@@ -25,7 +26,7 @@ pr_control_aCDM <- function(control, ...){
               "stop.eps" = 1e-5,
               "gamma" = 1, "gamma.G" = 1, "gamma.mu" = 1, "gamma.R"= 1,
               "h" = 1e-2, "tune.gamma" = 1, "return.trace" = F,
-              "max.G0" = 0.10,
+              "max.G0" = 0.10, "Qmatrix" = NULL,
               "cor.R" = F,
               "nsim" = 1e4, "verbose" = T, "verbose.every" = 10,
               "seed" = NULL, "mu" = NULL, "R" = NULL, "sampler" = "ULA",
@@ -42,7 +43,9 @@ pr_control_aCDM <- function(control, ...){
 pr_controlsim_gaCDM <- function(control,q,...){
 
   con <- list("degree" = NULL, "knots" = seq(.1,.9,by=0.1), "prob.sparse" = 0.75,
-              "iden.R" = F, "seed" = NULL, "mu" = NULL, "R" = NULL, "basis" = "pw")
+              "iden.R" = F, "seed" = NULL, "mu" = NULL, "R" = NULL,
+              # "intercept" = F,
+              "basis" = "pw")
   control <- c(control, list(...))
   namC <- names(con)
   con[(namc <- names(control))] <- control
@@ -65,7 +68,8 @@ pr_controlsim_aCDM <- function(control,q,...){
 #' @export
 pr_param_gaCDM <- function(p,q,tp,sim = F,control){
   if(!sim){
-      As <- matrix(1/q,p,q)
+      As <- matrix(1/q,p,q) * control$Qmatrix
+      As <- t(apply(As,1,function(x){x * 1/sum(x)}))
       Ds <- array(1, dim = c(p,tp,q)) # stats::rnorm(p*tp*q)
       if(control$basis == "is"){
         Cs <- array(1/tp,dim = c(p,tp,q))
@@ -76,7 +80,7 @@ pr_param_gaCDM <- function(p,q,tp,sim = F,control){
       mu <- rep(0,q)
       return(list("A" = As, "C" = Cs, "D" = Ds, "mu" = mu, "R" = Rs))
   } else {
-    simp <- genpar(p,q,control$prob.sparse,control$knots,control$degree,control$basis)
+    simp <- genpar(p,q,tp,control$prob.sparse,control$basis)
     As <- simp$A
     Cs <- simp$C
     Ds <- simp$D
@@ -95,14 +99,19 @@ pr_param_gaCDM <- function(p,q,tp,sim = F,control){
 }
 
 #' @export
-pr_param_aCDM <- function(p,q,Qmatrix,sim = F,control){
+pr_param_aCDM <- function(p,q,sim = F,control){
   if(!sim){
-    Gs <- genpar_aCDM(Qmatrix, control$max.G0)
+    Gs <- matrix(1/q,p,q) * control$Qmatrix
+    Gs <- t(apply(Gs,1,function(x){x * 1/sum(x)}))
+    for(i in 1:p){
+      Gs[i,Gs[i,] != 0] <- Gs[i,Gs[i,] != 0] - control$max.G0/sum(control$Qmatrix[i,])
+    }
+    Gs <- cbind(control$max.G0, Gs)
     Rs <- diag(q)
     mu <- rep(0,q)
     return(list("G" = Gs, "mu" = mu, "R" = Rs))
   } else {
-    Gs <- genpar_aCDM(Qmatrix, control$max.G0)
+    Gs <- genpar_aCDM(control$Qmatrix, control$max.G0)
     if(is.null(control$R)){
       if(control$iden.R){
         control$R = diag(q)

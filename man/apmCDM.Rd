@@ -4,14 +4,12 @@
 \alias{apmCDM}
 \title{Fit an Partial-Mastery Additive Cognitive Diagnosis Model (PM-ACDM).}
 \usage{
-apmCDM(data, q, Qmatrix, control = list(), start.par = NULL, ...)
+apmCDM(data, q, control = list(), start.par = NULL, ...)
 }
 \arguments{
 \item{data}{Matrix \code{(n x p)} with binary entries. Missing data should be coded as \code{NA}.}
 
 \item{q}{Number of latent variables.}
-
-\item{Qmatrix}{Q-matrix.}
 
 \item{control}{List of control parameters (see 'Details').}
 

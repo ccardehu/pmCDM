@@ -27,9 +27,9 @@ arma::mat UA(arma::mat& U, arma::mat& Apat);
 
 arma::mat dUA(arma::mat& U, arma::rowvec& Ak);
 
-Rcpp::List genpar(const int p, const int q,
+Rcpp::List genpar(const int p, const int q, const int tp,
                   const double probSparse,
-                  arma::vec& knots, const int degree, const std::string& basis);
+                  const std::string& basis);
 
 arma::mat genpar_aCDM(arma::mat& Qmatrix, const double maxG0);
 

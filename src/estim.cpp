@@ -6,7 +6,9 @@
 using namespace Rcpp;
 using namespace arma;
 
-Rcpp::List newAC_PGD(Rcpp::List& d1AC, arma::mat& Aold, arma::cube& Cold, double& ssA, double& ssC){
+Rcpp::List newAC_PGD(Rcpp::List& d1AC, arma::mat& Aold, arma::mat& Qmatrix,
+                     arma::cube& Cold,
+                     double& ssA, double& ssC){
    arma::vec d1ac = d1AC["grad"];
    arma::umat iA = d1AC["iA"];
    arma::ucube iC = d1AC["iC"];
@@ -16,7 +18,7 @@ Rcpp::List newAC_PGD(Rcpp::List& d1AC, arma::mat& Aold, arma::cube& Cold, double
    const int q = Cold.n_slices;
    for(int i = 0; i < p; i ++){
       arma::uvec idA = iA.row(i).t();
-      arma::vec tA = Aold.row(i).t() + ssA*d1ac(idA);
+      arma::vec tA = (Aold.row(i).t() + ssA*d1ac(idA)) % Qmatrix.row(i).t();
       Anew.row(i) = ProxD(tA).t();
       for(int j = 0; j < q; j++){
          if(Aold(i,j) > arma::datum::eps){
@@ -34,7 +36,9 @@ Rcpp::List newAC_PGD(Rcpp::List& d1AC, arma::mat& Aold, arma::cube& Cold, double
                              Rcpp::Named("C") = Cnew);
 }
 
-Rcpp::List newAD_PGD(Rcpp::List& d1AD,arma::mat& Aold, arma::cube& Dold, double& ssA, double& ssC){
+Rcpp::List newAD_PGD(Rcpp::List& d1AD,arma::mat& Aold, arma::mat& Qmatrix,
+                     arma::cube& Dold,
+                     double& ssA, double& ssC){
    arma::vec d1ad = d1AD["grad"];
    arma::umat iA = d1AD["iA"];
    arma::ucube iD = d1AD["iD"];
@@ -44,7 +48,7 @@ Rcpp::List newAD_PGD(Rcpp::List& d1AD,arma::mat& Aold, arma::cube& Dold, double&
    const int q = Dold.n_slices;
    for(int i = 0; i < p; i ++){
       arma::uvec idA = iA.row(i).t();
-      arma::vec tA = Aold.row(i).t() + ssA*d1ad(idA);
+      arma::vec tA = (Aold.row(i).t() + ssA*d1ad(idA)) % Qmatrix.row(i).t();
       Anew.row(i) = ProxD(tA).t();
       for(int j = 0; j < q; j++){
          if(Aold(i,j) > arma::datum::eps){
@@ -62,7 +66,8 @@ Rcpp::List newAD_PGD(Rcpp::List& d1AD,arma::mat& Aold, arma::cube& Dold, double&
                              Rcpp::Named("D") = Dnew);
 }
 
-Rcpp::List newAC_MD(Rcpp::List& d1AC,arma::mat& Aold, arma::cube& Cold, double& ssA, double& ssC){
+Rcpp::List newAC_MD(Rcpp::List& d1AC,arma::mat& Aold, arma::mat& Qmatrix,
+                    arma::cube& Cold, double& ssA, double& ssC){
    arma::vec d1ac = d1AC["grad"];
    arma::umat iA = d1AC["iA"];
    arma::ucube iC = d1AC["iC"];
@@ -72,7 +77,7 @@ Rcpp::List newAC_MD(Rcpp::List& d1AC,arma::mat& Aold, arma::cube& Cold, double& 
    const int q = Cold.n_slices;
    for(int i = 0; i < p; i ++){
       arma::uvec idA = iA.row(i).t();
-      arma::vec tA = Aold.row(i).t() % arma::exp(ssA*d1ac(idA));
+      arma::vec tA = (Aold.row(i).t() % arma::exp(ssA*d1ac(idA))) % Qmatrix.row(i).t();
       const double l1A = arma::sum(arma::abs(tA));
       Anew.row(i) = arma::clamp(tA.t() / l1A, arma::datum::eps, 1.0-arma::datum::eps);
       for(int j = 0; j < q; j++){
@@ -88,7 +93,8 @@ Rcpp::List newAC_MD(Rcpp::List& d1AC,arma::mat& Aold, arma::cube& Cold, double& 
                              Rcpp::Named("C") = Cnew);
 }
 
-Rcpp::List newAD_MD(Rcpp::List& d1AD,arma::mat& Aold, arma::cube& Dold, double& ssA, double& ssC){ // , arma::vec& d2adV
+Rcpp::List newAD_MD(Rcpp::List& d1AD,arma::mat& Aold, arma::mat& Qmatrix,
+                    arma::cube& Dold, double& ssA, double& ssC){
    arma::vec d1ad = d1AD["gs"];
    arma::umat iA = d1AD["iA"];
    arma::ucube iD = d1AD["iD"];
@@ -98,7 +104,7 @@ Rcpp::List newAD_MD(Rcpp::List& d1AD,arma::mat& Aold, arma::cube& Dold, double& 
    const int q = Dold.n_slices;
    for(int i = 0; i < p; i ++){
       arma::uvec idA = iA.row(i).t();
-      arma::vec tA = Aold.row(i).t() % arma::exp(ssA*d1ad(idA));
+      arma::vec tA = (Aold.row(i).t() % arma::exp(ssA*d1ad(idA))) % Qmatrix.row(i).t();
       const double l1A = arma::sum(arma::abs(tA));
       Anew.row(i) = arma::clamp(tA.t() / l1A, arma::datum::eps, 1.0-arma::datum::eps);
       for(int j = 0; j < q; j++){
@@ -117,7 +123,8 @@ Rcpp::List newAD_MD(Rcpp::List& d1AD,arma::mat& Aold, arma::cube& Dold, double& 
                              Rcpp::Named("D") = Dnew);
 }
 
-Rcpp::List newAD_MD_hess(Rcpp::List& d1AD,arma::mat& Aold, arma::cube& Dold, double& ssA, double& ssC){ // , arma::vec& d2adV
+Rcpp::List newAD_MD_hess(Rcpp::List& d1AD, arma::mat& Aold, arma::mat& Qmatrix,
+                         arma::cube& Dold, double& ssA, double& ssC){ // , arma::vec& d2adV
    arma::vec d1ad = d1AD["gs"];
    arma::mat d2ad = d1AD["hs"];
    arma::vec d2adV = -arma::diagvec(d2ad);
@@ -129,7 +136,7 @@ Rcpp::List newAD_MD_hess(Rcpp::List& d1AD,arma::mat& Aold, arma::cube& Dold, dou
    const int q = Dold.n_slices;
    for(int i = 0; i < p; i ++){
       arma::uvec idA = iA.row(i).t();
-      arma::vec tA = Aold.row(i).t() % arma::exp(ssA*d1ad(idA));
+      arma::vec tA = (Aold.row(i).t() % arma::exp(ssA*d1ad(idA))) % Qmatrix.row(i).t();
       const double l1A = arma::sum(arma::abs(tA));
       Anew.row(i) = arma::clamp(tA.t() / l1A, arma::datum::eps, 1.0-arma::datum::eps);
       for(int j = 0; j < q; j++){
@@ -148,7 +155,9 @@ Rcpp::List newAD_MD_hess(Rcpp::List& d1AD,arma::mat& Aold, arma::cube& Dold, dou
                              Rcpp::Named("D") = Dnew);
 }
 
-Rcpp::List newAD_MD_adam(Rcpp::List& d1AD,arma::mat& Aold, arma::cube& Dold, double& ssA, double& ssC,
+Rcpp::List newAD_MD_adam(Rcpp::List& d1AD,arma::mat& Aold,arma::mat& Qmatrix,
+                         arma::cube& Dold,
+                         double& ssA, double& ssC,
                          int iter, arma::vec& mt, arma::vec& vt, Rcpp::List& control){
    arma::vec d1ad = d1AD["gs"];
    double b1 = control["adam.b1"];
@@ -164,7 +173,7 @@ Rcpp::List newAD_MD_adam(Rcpp::List& d1AD,arma::mat& Aold, arma::cube& Dold, dou
    const int q = Dold.n_slices;
    for(int i = 0; i < p; i ++){
       arma::uvec idA = iA.row(i).t();
-      arma::vec tA = Aold.row(i).t() % arma::exp(ssA*d1ad(idA));
+      arma::vec tA = (Aold.row(i).t() % arma::exp(ssA*d1ad(idA))) % Qmatrix.row(i).t();
       const double l1A = arma::sum(arma::abs(tA));
       Anew.row(i) = arma::clamp(tA.t() / l1A, arma::datum::eps, 1.0-arma::datum::eps);
       for(int j = 0; j < q; j++){
@@ -368,6 +377,7 @@ arma::mat newG_MD(Rcpp::List& d1G, arma::mat& Gold, double& ss){
       tGi(ig) = Gni;
       Gnew.row(i) = tGi.t();
    }
+   if(!Gnew.is_finite()) Gnew = Gold;
    return(Gnew);
 }
 

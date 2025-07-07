@@ -169,18 +169,17 @@ BEGIN_RCPP
 END_RCPP
 }
 // genpar
-Rcpp::List genpar(const int p, const int q, const double probSparse, arma::vec& knots, const int degree, const std::string& basis);
-RcppExport SEXP _pmCDM_genpar(SEXP pSEXP, SEXP qSEXP, SEXP probSparseSEXP, SEXP knotsSEXP, SEXP degreeSEXP, SEXP basisSEXP) {
+Rcpp::List genpar(const int p, const int q, const int tp, const double probSparse, const std::string& basis);
+RcppExport SEXP _pmCDM_genpar(SEXP pSEXP, SEXP qSEXP, SEXP tpSEXP, SEXP probSparseSEXP, SEXP basisSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const int >::type p(pSEXP);
     Rcpp::traits::input_parameter< const int >::type q(qSEXP);
+    Rcpp::traits::input_parameter< const int >::type tp(tpSEXP);
     Rcpp::traits::input_parameter< const double >::type probSparse(probSparseSEXP);
-    Rcpp::traits::input_parameter< arma::vec& >::type knots(knotsSEXP);
-    Rcpp::traits::input_parameter< const int >::type degree(degreeSEXP);
     Rcpp::traits::input_parameter< const std::string& >::type basis(basisSEXP);
-    rcpp_result_gen = Rcpp::wrap(genpar(p, q, probSparse, knots, degree, basis));
+    rcpp_result_gen = Rcpp::wrap(genpar(p, q, tp, probSparse, basis));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -207,7 +206,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pmCDM_apmCDM_fit_rcpp", (DL_FUNC) &_pmCDM_apmCDM_fit_rcpp, 8},
     {"_pmCDM_apmCDM_cv_rcpp", (DL_FUNC) &_pmCDM_apmCDM_cv_rcpp, 9},
     {"_pmCDM_D2C", (DL_FUNC) &_pmCDM_D2C, 1},
-    {"_pmCDM_genpar", (DL_FUNC) &_pmCDM_genpar, 6},
+    {"_pmCDM_genpar", (DL_FUNC) &_pmCDM_genpar, 5},
     {"_pmCDM_genpar_aCDM", (DL_FUNC) &_pmCDM_genpar_aCDM, 2},
     {NULL, NULL, 0}
 };

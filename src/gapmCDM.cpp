@@ -67,6 +67,7 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
   const double gC = control["gamma.CD"];
   const double gR = control["gamma.R"];
   arma::vec knots = control["knots"];
+  arma::mat Q = control["Qmatrix"];
 
   const int n = Y.n_rows;
   const int q = R.n_cols;
@@ -94,9 +95,6 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
   arma::vec artrace(iterlim/10);
   const int etp = A.size() + C.size();
   arma::vec mt(etp,fill::zeros), vt(etp,fill::zeros);
-  // gs(etp), vs(etp,fill::zeros),
-  // arma::vec vS(etp,fill::zeros); //
-  // arma::mat hS(etp,etp);
   int iter = 1;
   double ar = 0;
   double ssA;
@@ -132,7 +130,7 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
       spD = spObj.slice(1);
       PI = prob(A,C,spM);
       Rcpp::List gac = d1AC(Y,PI,spM,A,C);
-      Rcpp::List ACn = newAC_MD(gac,A,C,ssA, ssC);
+      Rcpp::List ACn = newAC_MD(gac,A,Q,C,ssA,ssC);
       An = Rcpp::as<arma::mat>(ACn["A"]);
       Cn = Rcpp::as<arma::cube>(ACn["C"]);
     } else {
@@ -141,23 +139,16 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
       spD = spObj.slice(1);
       PI = prob(A,C,spM);
       Rcpp::List gad = d1AD(Y,PI,spM,A,D);
-      // arma::vec gs = Rcpp::as<arma::vec>(gad["gs"]);
-      // arma::mat hS = Rcpp::as<arma::mat>(gad["hs"]);
-      // arma::vec vs = arma::diagvec(hS);
-      // vs1 = (1-ssAC)*vs1 + ssAC*(vs - arma::pow(gs,2));
-      // vs2 = (1-ssAC)*vs2 + ssAC*(gs);
-      // arma::vec vSt = vs1 + arma::pow(vs2,2);
-      // vS = (ii-1)/ii*vS + 1/ii*arma::clamp(vSt,1e-3,1e3);
       Rcpp::List ADn ;
       if(algo == "GD"){
-        ADn = newAD_MD(gad,A,D,ssA, ssC);
+        ADn = newAD_MD(gad,A,Q,D,ssA,ssC);
       } else if(algo == "ADAM"){
-        ADn = newAD_MD_adam(gad,A,D,ssA,ssC,iter,mt,vt,control);
+        ADn = newAD_MD_adam(gad,A,Q,D,ssA,ssC,iter,mt,vt,control);
       } else if(algo == "mixed"){
         if(ii <= tunelim + 0.5*iterlim){
-          ADn = newAD_MD(gad,A,D,ssA,ssC);
+          ADn = newAD_MD(gad,A,Q,D,ssA,ssC);
         } else {
-          ADn = newAD_MD_adam(gad,A,D,ssA,ssC,iter,mt,vt,control);
+          ADn = newAD_MD_adam(gad,A,Q,D,ssA,ssC,iter,mt,vt,control);
         }
       }
       An = Rcpp::as<arma::mat>(ADn["A"]);
@@ -258,7 +249,6 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
   const int nsim = control["nsim"];
   double llk(0), BIC(0), AIC(0);
   if(nsim != 0){
-    // llk = fy_gapmCDM(Y,Aout,Cout,Mout,Rout,control);
     llk = fy_gapmCDM_IS(Y,Aout,Cout,Mout,Rout,Zout,
                         pMout,pRout,control);
     BIC = -2*llk + std::log(n)*Aout.n_elem;
@@ -385,8 +375,8 @@ Rcpp::List gapmCDM_cv_rcpp(arma::mat& Ytrain, arma::mat& Ytest, arma::mat& A, ar
 
 // [[Rcpp::export]]
 Rcpp::List apmCDM_sim_rcpp(const int n,
-                         arma::mat& G, arma::mat& Qmatrix, arma::mat& Apat,
-                         arma::vec& mu, arma::mat& R){
+                           arma::mat& G, arma::mat& Qmatrix, arma::mat& Apat,
+                           arma::vec& mu, arma::mat& R){
   int p = G.n_rows;
   arma::mat Y(n,p);
   arma::mat Z = rmvNorm(n,mu,R);
@@ -571,7 +561,6 @@ Rcpp::List apmCDM_fit_rcpp(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma:
   const int nsim = control["nsim"];
   double llk(0), BIC(0), AIC(0);
   if(nsim != 0){
-    // llk = fy_aCDM(Y,Gout,Qmatrix,Apat,Mout,Rout,control);
     llk = fy_aCDM_IS(Y,Gout,Qmatrix,Apat,Mout,Rout,Zout,
                      pMout,pRout,control);
     BIC = -2*llk + std::log(n)*tp;
