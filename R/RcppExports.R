@@ -37,11 +37,11 @@ D2C <- function(D) {
     .Call(`_pmCDM_D2C`, D)
 }
 
-genpar <- function(p, q, tp, probSparse, basis) {
-    .Call(`_pmCDM_genpar`, p, q, tp, probSparse, basis)
+genpar <- function(p, q, tp, probSparse, Qmatrix, basis) {
+    .Call(`_pmCDM_genpar`, p, q, tp, probSparse, Qmatrix, basis)
 }
 
-genpar_aCDM <- function(Qmatrix, maxG0) {
-    .Call(`_pmCDM_genpar_aCDM`, Qmatrix, maxG0)
+genpar_aCDM <- function(Qmatrix, maxG0, maxSl) {
+    .Call(`_pmCDM_genpar_aCDM`, Qmatrix, maxG0, maxSl)
 }
 

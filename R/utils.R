@@ -1,6 +1,8 @@
 #' Compute marginal log-likelihood (via Importance Sampling) for an object of class "pmCDM".
 #'
 #' @param mod \code{pmCDM} object.
+#' @param Y Dataset to evaluate MLLK (default \code{NULL})
+#' @param control List for importance sampling options (\code{nsim})
 #'
 #' @return A list with components:
 #' \itemize{

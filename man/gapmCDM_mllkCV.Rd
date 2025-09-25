@@ -22,7 +22,7 @@ A list with components:
 \itemize{
 \item \code{mllk.test}: Test data marginal log-likelihood.
 \item \code{mllk.train}: Train data marginal log-likelihood.
-\item \code{mllk.BIC} Train data BIC.
+\item \code{train.mod} Fitted model on Train data (for traceability).
 }
 }
 \description{

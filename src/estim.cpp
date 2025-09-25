@@ -17,9 +17,14 @@ Rcpp::List newAC_PGD(Rcpp::List& d1AC, arma::mat& Aold, arma::mat& Qmatrix,
    const int p = Aold.n_rows;
    const int q = Cold.n_slices;
    for(int i = 0; i < p; i ++){
-      arma::uvec idA = iA.row(i).t();
-      arma::vec tA = (Aold.row(i).t() + ssA*d1ac(idA)) % Qmatrix.row(i).t();
-      Anew.row(i) = ProxD(tA).t();
+      if(q > 1){
+         arma::uvec idA = iA.row(i).t();
+         arma::vec tA = (Aold.row(i).t() + ssA*d1ac(idA)) % Qmatrix.row(i).t();
+         Anew.row(i) = ProxD(tA).t();
+         if(!Anew.row(i).is_finite()) Anew.row(i) = Aold.row(i);
+      } else {
+         Anew.row(i) = Aold.row(i);
+      }
       for(int j = 0; j < q; j++){
          if(Aold(i,j) > arma::datum::eps){
             arma::uvec idC = iC.slice(j).row(i).t();
@@ -28,10 +33,9 @@ Rcpp::List newAC_PGD(Rcpp::List& d1AC, arma::mat& Aold, arma::mat& Qmatrix,
          } else {
             Cnew.slice(j).row(i) = Cold.slice(j).row(i);
          }
+         if(!Cnew.slice(j).row(i).is_finite()) Cnew.slice(j).row(i) = Cold.slice(j).row(i);
       }
    }
-   if(!Anew.is_finite()) Anew = Aold;
-   if(!Cnew.is_finite()) Cnew = Cold;
    return Rcpp::List::create(Rcpp::Named("A") = Anew,
                              Rcpp::Named("C") = Cnew);
 }
@@ -47,9 +51,14 @@ Rcpp::List newAD_PGD(Rcpp::List& d1AD,arma::mat& Aold, arma::mat& Qmatrix,
    const int p = Aold.n_rows;
    const int q = Dold.n_slices;
    for(int i = 0; i < p; i ++){
-      arma::uvec idA = iA.row(i).t();
-      arma::vec tA = (Aold.row(i).t() + ssA*d1ad(idA)) % Qmatrix.row(i).t();
-      Anew.row(i) = ProxD(tA).t();
+      if(q > 1){
+         arma::uvec idA = iA.row(i).t();
+         arma::vec tA = (Aold.row(i).t() + ssA*d1ad(idA)) % Qmatrix.row(i).t();
+         Anew.row(i) = ProxD(tA).t();
+         if(!Anew.row(i).is_finite()) Anew.row(i) = Aold.row(i);
+      } else {
+         Anew.row(i) = Aold.row(i);
+      }
       for(int j = 0; j < q; j++){
          if(Aold(i,j) > arma::datum::eps){
             arma::uvec idD = iD.slice(j).row(i).t();
@@ -58,10 +67,9 @@ Rcpp::List newAD_PGD(Rcpp::List& d1AD,arma::mat& Aold, arma::mat& Qmatrix,
          } else {
             Dnew.slice(j).row(i) = Dold.slice(j).row(i);
          }
+         if(!Dnew.slice(j).row(i).is_finite()) Dnew.slice(j).row(i) = Dold.slice(j).row(i);
       }
    }
-   if(!Anew.is_finite()) Anew = Aold;
-   if(!Dnew.is_finite()) Dnew = Dold;
    return Rcpp::List::create(Rcpp::Named("A") = Anew,
                              Rcpp::Named("D") = Dnew);
 }
@@ -76,19 +84,23 @@ Rcpp::List newAC_MD(Rcpp::List& d1AC,arma::mat& Aold, arma::mat& Qmatrix,
    const int p = Aold.n_rows;
    const int q = Cold.n_slices;
    for(int i = 0; i < p; i ++){
-      arma::uvec idA = iA.row(i).t();
-      arma::vec tA = (Aold.row(i).t() % arma::exp(ssA*d1ac(idA))) % Qmatrix.row(i).t();
-      const double l1A = arma::sum(arma::abs(tA));
-      Anew.row(i) = arma::clamp(tA.t() / l1A, arma::datum::eps, 1.0-arma::datum::eps);
+      if(q > 1){
+         arma::uvec idA = iA.row(i).t();
+         arma::vec tA = (Aold.row(i).t() % arma::exp(ssA*d1ac(idA))) % Qmatrix.row(i).t();
+         const double l1A = arma::sum(arma::abs(tA));
+         Anew.row(i) = arma::clamp(tA.t() / l1A, 0.0, 1.0);
+         if(!Anew.row(i).is_finite()) Anew.row(i) = Aold.row(i);
+      } else {
+         Anew.row(i) = Aold.row(i);
+      }
       for(int j = 0; j < q; j++){
          arma::uvec idC = iC.slice(j).row(i).t();
          arma::vec tC = Cold.slice(j).row(i).t() % arma::exp(ssC*d1ac(idC));
          const double l1C = arma::sum(arma::abs(tC));
-         Cnew.slice(j).row(i) = arma::clamp(tC.t() / l1C, arma::datum::eps, 1.0-arma::datum::eps);
+         Cnew.slice(j).row(i) = arma::clamp(tC.t() / l1C, 0.0, 1.0);
+         if(!Cnew.slice(j).row(i).is_finite()) Cnew.slice(j).row(i) = Cold.slice(j).row(i);
       }
    }
-   if(!Anew.is_finite()) Anew = Aold;
-   if(!Cnew.is_finite()) Cnew = Cold;
    return Rcpp::List::create(Rcpp::Named("A") = Anew,
                              Rcpp::Named("C") = Cnew);
 }
@@ -103,10 +115,15 @@ Rcpp::List newAD_MD(Rcpp::List& d1AD,arma::mat& Aold, arma::mat& Qmatrix,
    const int p = Aold.n_rows;
    const int q = Dold.n_slices;
    for(int i = 0; i < p; i ++){
-      arma::uvec idA = iA.row(i).t();
-      arma::vec tA = (Aold.row(i).t() % arma::exp(ssA*d1ad(idA))) % Qmatrix.row(i).t();
-      const double l1A = arma::sum(arma::abs(tA));
-      Anew.row(i) = arma::clamp(tA.t() / l1A, arma::datum::eps, 1.0-arma::datum::eps);
+      if(q > 1){
+         arma::uvec idA = iA.row(i).t();
+         arma::vec tA = (Aold.row(i).t() % arma::exp(ssA*d1ad(idA))) % Qmatrix.row(i).t();
+         const double l1A = arma::sum(arma::abs(tA));
+         Anew.row(i) = arma::clamp(tA.t() / l1A, 0.0, 1.0);
+         if(!Anew.row(i).is_finite()) Anew.row(i) = Aold.row(i);
+      } else {
+         Anew.row(i) = Aold.row(i);
+      }
       for(int j = 0; j < q; j++){
          if(Aold(i,j) > std::sqrt(arma::datum::eps)){
             arma::uvec idD = iD.slice(j).row(i).t();
@@ -115,10 +132,9 @@ Rcpp::List newAD_MD(Rcpp::List& d1AD,arma::mat& Aold, arma::mat& Qmatrix,
          } else {
             Dnew.slice(j).row(i) = Dold.slice(j).row(i);
          }
+         if(!Dnew.slice(j).row(i).is_finite()) Dnew.slice(j).row(i) = Dold.slice(j).row(i);
       }
    }
-   if(!Anew.is_finite()) Anew = Aold;
-   if(!Dnew.is_finite()) Dnew = Dold;
    return Rcpp::List::create(Rcpp::Named("A") = Anew,
                              Rcpp::Named("D") = Dnew);
 }
@@ -135,10 +151,15 @@ Rcpp::List newAD_MD_hess(Rcpp::List& d1AD, arma::mat& Aold, arma::mat& Qmatrix,
    const int p = Aold.n_rows;
    const int q = Dold.n_slices;
    for(int i = 0; i < p; i ++){
-      arma::uvec idA = iA.row(i).t();
-      arma::vec tA = (Aold.row(i).t() % arma::exp(ssA*d1ad(idA))) % Qmatrix.row(i).t();
-      const double l1A = arma::sum(arma::abs(tA));
-      Anew.row(i) = arma::clamp(tA.t() / l1A, arma::datum::eps, 1.0-arma::datum::eps);
+      if(q > 1){
+         arma::uvec idA = iA.row(i).t();
+         arma::vec tA = (Aold.row(i).t() % arma::exp(ssA*d1ad(idA))) % Qmatrix.row(i).t();
+         const double l1A = arma::sum(arma::abs(tA));
+         Anew.row(i) = arma::clamp(tA.t() / l1A, 0.0, 1.0);
+         if(!Anew.row(i).is_finite()) Anew.row(i) = Aold.row(i);
+      } else {
+         Anew.row(i) = Aold.row(i);
+      }
       for(int j = 0; j < q; j++){
          if(Aold(i,j) > std::sqrt(arma::datum::eps)){
             arma::uvec idD = iD.slice(j).row(i).t();
@@ -147,10 +168,9 @@ Rcpp::List newAD_MD_hess(Rcpp::List& d1AD, arma::mat& Aold, arma::mat& Qmatrix,
          } else {
             Dnew.slice(j).row(i) = Dold.slice(j).row(i);
          }
+         if(!Dnew.slice(j).row(i).is_finite()) Dnew.slice(j).row(i) = Dold.slice(j).row(i);
       }
    }
-   if(!Anew.is_finite()) Anew = Aold;
-   if(!Dnew.is_finite()) Dnew = Dold;
    return Rcpp::List::create(Rcpp::Named("A") = Anew,
                              Rcpp::Named("D") = Dnew);
 }
@@ -172,10 +192,15 @@ Rcpp::List newAD_MD_adam(Rcpp::List& d1AD,arma::mat& Aold,arma::mat& Qmatrix,
    const int p = Aold.n_rows;
    const int q = Dold.n_slices;
    for(int i = 0; i < p; i ++){
-      arma::uvec idA = iA.row(i).t();
-      arma::vec tA = (Aold.row(i).t() % arma::exp(ssA*d1ad(idA))) % Qmatrix.row(i).t();
-      const double l1A = arma::sum(arma::abs(tA));
-      Anew.row(i) = arma::clamp(tA.t() / l1A, arma::datum::eps, 1.0-arma::datum::eps);
+      if(q > 1){
+         arma::uvec idA = iA.row(i).t();
+         arma::vec tA = (Aold.row(i).t() % arma::exp(ssA*d1ad(idA))) % Qmatrix.row(i).t();
+         const double l1A = arma::sum(arma::abs(tA));
+         Anew.row(i) = arma::clamp(tA.t() / l1A, 0.0, 1.0);
+         if(!Anew.row(i).is_finite()) Anew.row(i) = Aold.row(i);
+      } else {
+         Anew.row(i) = Aold.row(i);
+      }
       for(int j = 0; j < q; j++){
          if(Aold(i,j) > std::sqrt(arma::datum::eps)){
             arma::uvec idD = iD.slice(j).row(i).t();
@@ -184,12 +209,11 @@ Rcpp::List newAD_MD_adam(Rcpp::List& d1AD,arma::mat& Aold,arma::mat& Qmatrix,
          } else {
             Dnew.slice(j).row(i) = Dold.slice(j).row(i);
          }
+         if(!Dnew.slice(j).row(i).is_finite()) Dnew.slice(j).row(i) = Dold.slice(j).row(i);
       }
    }
    mt = mtN;
    vt = vtN;
-   if(!Anew.is_finite()) Anew = Aold;
-   if(!Dnew.is_finite()) Dnew = Dold;
    return Rcpp::List::create(Rcpp::Named("A") = Anew,
                              Rcpp::Named("D") = Dnew);
 }
@@ -372,12 +396,62 @@ arma::mat newG_MD(Rcpp::List& d1G, arma::mat& Gold, double& ss){
       Goi = Goi(ig);
       arma::vec tG = Goi % arma::exp(ss*d1g(idG));
       const double l1G = arma::sum(arma::abs(tG));
-      arma::vec Gni = arma::clamp(tG / l1G, arma::datum::eps, 1.0-arma::datum::eps);
+      arma::vec Gni = arma::clamp(tG / l1G, 0.0, 1.0);
       arma::vec tGi(Gnew.n_cols);
       tGi(ig) = Gni;
+      if(!tGi.is_finite()) tGi = Gold.row(i).t();
       Gnew.row(i) = tGi.t();
    }
-   if(!Gnew.is_finite()) Gnew = Gold;
+   return(Gnew);
+}
+
+arma::mat newG_PL2(Rcpp::List& d1G, arma::mat& Gold, double& ss){
+   arma::vec d1g = d1G["grad"];
+   arma::umat iG = d1G["iG"];
+   arma::mat Gnew(arma::size(Gold));
+   const int p = Gold.n_rows;
+   for(int i = 0; i < p; i++){
+      arma::uvec ig = arma::find(Gold.row(i) != 0);
+      arma::uvec idG = iG.row(i).t();
+      idG = idG(ig);
+      arma::vec Goi = Gold.row(i).t();
+      Goi = Goi(ig);
+      arma::vec tG = Goi + ss*d1g(idG);
+      arma::vec Gni = ProjSim(tG);
+      arma::vec tGi(Gnew.n_cols);
+      tGi(ig) = Gni;
+      if(!tGi.is_finite()) tGi = Gold.row(i).t();
+      Gnew.row(i) = tGi.t();
+   }
+   return(Gnew);
+}
+
+arma::mat newG_PL2_adam(Rcpp::List& d1G,arma::mat& Gold, double& ss,
+                        int iter, arma::vec& mt, arma::vec& vt, Rcpp::List& control){
+   arma::vec d1g = d1G["grad"];
+   arma::umat iG = d1G["iG"];
+   arma::mat Gnew(arma::size(Gold));
+   double b1 = control["adam.b1"];
+   double b2 = control["adam.b2"];
+   arma::vec mtN = b1*mt + (1-b1)*d1g;
+   arma::vec vtN = b2*vt + (1-b2)*arma::pow(d1g,2);
+   arma::vec d1gADAM = (mtN/(1-std::pow(b1,iter))) / (arma::pow(vtN/(1-std::pow(b2,iter)),0.5) + std::sqrt(arma::datum::eps));
+   const int p = Gold.n_rows;
+   for(int i = 0; i < p; i ++){
+      arma::uvec ig = arma::find(Gold.row(i) != 0);
+      arma::uvec idG = iG.row(i).t();
+      idG = idG(ig);
+      arma::vec Goi = Gold.row(i).t();
+      Goi = Goi(ig);
+      arma::vec tG = Goi + ss*d1gADAM(idG);
+      arma::vec Gni = ProjSim(tG);
+      arma::vec tGi(Gnew.n_cols);
+      tGi(ig) = Gni;
+      if(!tGi.is_finite()) tGi = Gold.row(i).t();
+      Gnew.row(i) = tGi.t();
+   }
+   mt = mtN;
+   vt = vtN;
    return(Gnew);
 }
 
@@ -477,6 +551,8 @@ double fy_gapmCDM_IS(arma::mat& Y, arma::mat& A, arma::cube& C,
    int n1 = pR.n_slices;
    double ar = 0;
    if(n != n1){
+      Zsim.set_size(n,q);
+      Zsim.fill(0.0);
       pM.set_size(n,q);
       pM.fill(0.0);
       arma::mat pMi(arma::size(pM));
@@ -486,10 +562,10 @@ double fy_gapmCDM_IS(arma::mat& Y, arma::mat& A, arma::cube& C,
       cube2eye(pRi);
       double h = control["h"];
       double ssZ;
-      arma::mat Zsam(Z);
-      Zsim.fill(0.0);
-      if(verbose) Rcpp::Rcout << " Sampling latent attributes for test data ";
+      arma::mat Zsam = rmvStNorm(n,q);
+      if(verbose) Rcpp::Rcout << "\n Sampling latent attributes for test data ";
       for(int ii = 1; ii <= nsim; ii++){
+         if (ii % 2 == 0) Rcpp::checkUserInterrupt();
          arma::mat Usam = Z2U(Zsam);
          if(basis == "is"){
             spObj = SpU_isp(Usam,knots,degree);
@@ -589,6 +665,8 @@ double fy_aCDM_IS(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apa
    int n1 = pR.n_slices;
    double ar = 0;
    if(n != n1){
+      Zsim.set_size(n,q);
+      Zsim.fill(0.0);
       pM.set_size(n,q);
       pM.fill(0.0);
       arma::mat pMi(arma::size(pM));
@@ -598,10 +676,10 @@ double fy_aCDM_IS(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apa
       cube2eye(pRi);
       double h = control["h"];
       double ssZ;
-      arma::mat Zsam(Z);
-      Zsim.fill(0.0);
-      if(verbose) Rcpp::Rcout << " Sampling latent attributes for test data ";
+      arma::mat Zsam = rmvStNorm(n,q);
+      if(verbose) Rcpp::Rcout << "\n Sampling latent attributes for test data ";
       for(int ii = 1; ii <= nsim; ii++){
+         if (ii % 2 == 0) Rcpp::checkUserInterrupt();
          arma::mat Usam = Z2U(Zsam);
          arma::mat piH = prob_aCDM(G,Usam,Apat);
          arma::mat Zn(arma::size(Zsam));
@@ -665,3 +743,43 @@ double fy_aCDM_IS(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma::mat& Apa
    if(verbose) Rcpp::Rcout << "\r Calculating marginal log-likelihood (via IS, iter: " << std::setw(5) << nsim << ") ... (m-llk: " << std::to_string(mllk) << ")";
    return(mllk);
 }
+
+// // [[Rcpp::export]]
+// arma::vec ISE_gaVSga(arma::mat& A1, arma::cube& C1,
+//                      arma::mat& A0, arma::cube& C0,
+//                      arma::vec& mu1, arma::mat& R1,
+//                      arma::vec& mu0, arma::mat& R0,
+//                      Rcpp::List& control){
+//
+//    const unsigned int degree = control["degree"];
+//    const int nsim = control["nsim"];
+//    arma::vec knots = control["knots"];
+//    const bool verbose = control["verbose"];
+//    const int every = control["verbose.every"];
+//    const std::string basis = Rcpp::as<std::string>(control["basis"]);
+//    const std::string sampler = Rcpp::as<std::string>(control["sampler"]);
+//
+//    const int q = R0.n_rows;
+//    arma::vec mus(q);
+//    arma::vec out;
+//    arma::mat Rsim = R0 + arma::eye(q,q);
+//    arma::mat Zsim = rmvNorm(nsim,mu0,Rsim);
+//    arma::mat isMo(nsim,R0.n_cols * C0.n_cols);
+//    arma::mat isDo(nsim,R0.n_cols * C0.n_cols);
+//    arma::cube spObj(nsim,R0.n_cols * C0.n_cols,2);
+//
+//    if(verbose) Rcpp::Rcout << "\n Calculating Integrated Squared Error ... ";
+//    arma::mat Usim = Z2U(Zsim);
+//    if(basis == "is"){
+//       spObj = SpU_isp(Usim,knots,degree);
+//       isMo = spObj.slice(0);
+//    } else {
+//       spObj = SpU_bsp(Usim,knots,degree);
+//       isMo = spObj.slice(0);
+//    }
+//    arma::mat piH1 = prob(A1,C1,isMo);
+//    arma::mat piH0 = prob(A0,C0,isMo);
+//    out = arma::mean(arma::pow(piH1 - piH0,2),0);
+//    if(verbose) Rcpp::Rcout << "\r Calculating marginal log-likelihood ... (Done)";
+//    return(out);
+// }

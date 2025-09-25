@@ -73,6 +73,11 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
   const int q = R.n_cols;
   const int np = knots.size() + degree ;
 
+  if(q == 1){
+    A.resize(Y.n_cols,q);
+    A.fill(1.0);
+  }
+
   arma::mat L = arma::chol(R,"lower");
   arma::mat PI(arma::size(Y));
   arma::mat Zout(arma::size(Z));
@@ -86,9 +91,16 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
   arma::cube pR(q,q,n), pRout(q,q,n);
   cube2eye(pR);
   arma::mat pM(arma::size(Z)), pMout(arma::size(Z));
-  arma::uvec Rld = arma::trimatl_ind(arma::size(R),-1);
+  arma::uvec Rld;
+  if(q > 1){
+    Rld = arma::trimatl_ind(arma::size(R),-1);
+  } else {
+    Rld.resize(1);
+    Rld.fill(0);
+  }
 
-  const int tp = A.size() + C.size() + mu.size() + Rld.size();
+  int tp = 0;
+  tp = A.size() + C.size() + mu.size() + Rld.size();
   arma::mat theta(window,tp);
   arma::mat patrace(iterlim/10,tp);
   arma::mat lltrace(iterlim/10,2);
@@ -156,7 +168,12 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
       Cn = D2C(Dn);
     }
     // arma::vec Mn = newM(mu,R,Z,ssAC);
-    arma::mat Ln = newL(mu,L,Z,ssR,corFLAG);
+    arma::mat Ln(arma::size(L));
+    if(q > 1){
+      Ln = newL(mu,L,Z,ssR,corFLAG);
+    } else {
+      Ln = L;
+    }
     arma::mat Zn(arma::size(Z));
     if(ii <= tunelim){
       Zn = Z;
@@ -408,9 +425,12 @@ Rcpp::List apmCDM_fit_rcpp(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma:
   const bool stopFLAG = control["stop.atconv"];
   const bool traceFLAG = control["return.trace"];
   const bool corFLAG = control["cor.R"];
+  const bool slipFLAG = control["allow.slip"];
   const std::string sampler = Rcpp::as<std::string>(control["sampler"]);
+  const std::string algo = Rcpp::as<std::string>(control["algorithm"]);
   const double h = control["h"];
   const double g = control["gamma"];
+  const double damp = control["damp.factor"];
   double gG = control["gamma.G"];
   double gM = control["gamma.mu"];
   double gR = control["gamma.R"];
@@ -429,7 +449,22 @@ Rcpp::List apmCDM_fit_rcpp(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma:
   cube2eye(pR);
   arma::mat pM(arma::size(Z)), pMout(arma::size(Z));
 
-  arma::uvec Rld = arma::trimatl_ind(arma::size(R),-1);
+  arma::uvec Rld;
+  if(corFLAG){
+    if(q > 1){
+      Rld = arma::trimatl_ind(arma::size(R),-1);
+    } else {
+      Rld.resize(1);
+      Rld.fill(0);
+    }
+  } else {
+    if(q > 1){
+      Rld = arma::trimatl_ind(arma::size(R),0);
+    } else {
+      Rld.resize(1);
+      Rld.fill(0);
+    }
+  }
 
   arma::vec c1(p, arma::fill::value(1.0));
   arma::mat Qmatrix1 = arma::join_rows(c1,Qmatrix);
@@ -440,6 +475,7 @@ Rcpp::List apmCDM_fit_rcpp(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma:
   arma::mat patrace(iterlim/10,tp);
   arma::mat lltrace(iterlim/10,2);
   arma::vec artrace(iterlim/10);
+  arma::vec mt(G.size(),fill::zeros), vt(G.size(),fill::zeros);
   int iter = 1;
   double ar = 0;
   double ssG;
@@ -471,7 +507,29 @@ Rcpp::List apmCDM_fit_rcpp(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma:
     }
     PI = prob_aCDM(G,U,Apat);
     Rcpp::List dG = d1G(Y,U,PI,G,Apat,Qmatrix);
-    arma::mat Gn = newG_MD(dG,G,ssG);
+    if(slipFLAG){
+      if(iter < burnin){
+        Gn = newG_MD(dG,G,ssG);
+      } else {
+        if(algo == "GD"){
+          ssG *= damp;
+          Gn = newG_PL2(dG,G,ssG);
+        } else if(algo == "ADAM") {
+          ssG *= damp;
+          Gn = newG_PL2_adam(dG,G,ssG,iter,mt,vt,control);
+        } else if(algo == "mixed") {
+          if(ii <= tunelim + .5*iterlim){
+            ssG *= damp;
+            Gn = newG_PL2(dG,G,ssG);
+          } else {
+            ssG *= damp;
+            Gn = newG_PL2_adam(dG,G,ssG,iter,mt,vt,control);
+          }
+        }
+      }
+    } else {
+      Gn = newG_MD(dG,G,ssG);
+    }
     arma::vec Mn = newM(mu,R,Z,ssM);
     arma::mat Ln = newL(mu,L,Z,ssR,corFLAG);
     arma::mat Zn(arma::size(Z));
@@ -590,7 +648,7 @@ Rcpp::List apmCDM_fit_rcpp(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma:
                               Rcpp::Named("mu") = Mout,
                               Rcpp::Named("R") = Rout,
                               Rcpp::Named("Z") = Zout,
-                              Rcpp::Named("U") = Z2U(Zout),
+                              Rcpp::Named("U") = Uout,
                               Rcpp::Named("PI") = PI,
                               Rcpp::Named("llk") = llk,
                               Rcpp::Named("BIC") = BIC,

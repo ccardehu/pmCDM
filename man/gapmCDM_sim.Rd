@@ -24,7 +24,7 @@ A list with components:
 \itemize{
 \item \code{Y}: A matrix \code{(n x p)} of simulated observed (binary) variables.
 \item \code{Z}: A matrix \code{(n x q)} of simulated latent variables (on the continuous scale).
-\item \code{U}: A matrix \code{(n x q)} of simulated latent variables (on the \link{0,1} scale).
+\item \code{U}: A matrix \code{(n x q)} of simulated latent variables (on the \code{[0,1]} scale).
 \item \code{spM}: A matrix \code{(n x tp)} of I/B-spline basis functions (\code{(tp = degree + |knots|)}).
 \item \code{PI}: A matrix \code{(n x p)} of predicted probabilities.
 }

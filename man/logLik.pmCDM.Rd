@@ -8,6 +8,10 @@
 }
 \arguments{
 \item{mod}{\code{pmCDM} object.}
+
+\item{Y}{Dataset to evaluate MLLK (default \code{NULL})}
+
+\item{control}{List for importance sampling options (\code{nsim})}
 }
 \value{
 A list with components:

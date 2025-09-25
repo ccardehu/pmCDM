@@ -2,7 +2,7 @@
 % Please edit documentation in R/pmCDM.R
 \name{gapmCDM_findqUI}
 \alias{gapmCDM_findqUI}
-\title{Find number of latent variables (q) using Universal inference}
+\title{Find number of latent variables (q) using Universal Inference (UI, Wasserman et al., PNAS 2020).}
 \usage{
 gapmCDM_findqUI(
   data,
@@ -36,7 +36,7 @@ A list with components:
 }
 }
 \description{
-Find number of latent variables (q) using Universal inference
+Find number of latent variables (q) using Universal Inference (UI, Wasserman et al., PNAS 2020).
 }
 \details{
 Test

@@ -40,6 +40,11 @@ arma::mat newZ_RWMH(arma::mat& Y, arma::mat& PI,arma::mat& Z, arma::mat& A, arma
 
 arma::mat newG_MD(Rcpp::List& d1G, arma::mat& Gold, double& ss);
 
+arma::mat newG_PL2(Rcpp::List& d1G, arma::mat& Gold, double& ss);
+
+arma::mat newG_PL2_adam(Rcpp::List& d1G,arma::mat& Gold, double& ss,
+                        int iter, arma::vec& mt, arma::vec& vt, Rcpp::List& control);
+
 arma::mat newZ_ULA_aCDM(arma::mat& Y, arma::mat& PI, arma::mat& Z, arma::mat& Qmatrix, arma::mat& Apat,
                         arma::mat& G, arma::vec& mu, arma::mat& R, double& h);
 

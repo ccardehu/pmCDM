@@ -9,6 +9,16 @@ arma::mat cumsumMat(arma::vec& expd);
 
 arma::vec ProxD(arma::vec& y);
 
+Rcpp::List QP_Rcpp(Rcpp::NumericMatrix& Dmat, Rcpp::NumericVector& dvec,
+                   Rcpp::NumericMatrix& Amat, Rcpp::NumericVector& bvec,
+                   int meq = 0L, bool factor = false);
+
+arma::vec QP_Arma(arma::mat& Dmat, arma::vec& dvec,
+                  arma::mat& Amat, arma::vec& bvec,
+                  const int meq = 0L, bool factor = false);
+
+arma::vec ProjSim(arma::vec& y);
+
 arma::mat ProxL(arma::mat& L);
 
 void cube2eye(arma::cube& C);
@@ -28,10 +38,10 @@ arma::mat UA(arma::mat& U, arma::mat& Apat);
 arma::mat dUA(arma::mat& U, arma::rowvec& Ak);
 
 Rcpp::List genpar(const int p, const int q, const int tp,
-                  const double probSparse,
+                  const double probSparse, arma::mat& Qmatrix,
                   const std::string& basis);
 
-arma::mat genpar_aCDM(arma::mat& Qmatrix, const double maxG0);
+arma::mat genpar_aCDM(arma::mat& Qmatrix, const double maxG0, const double maxSl);
 
 arma::cube SpU_isp(arma::mat& U, arma::vec& knots, const unsigned int deg);
 

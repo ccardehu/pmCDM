@@ -23,20 +23,16 @@ arma::mat Z2U(arma::mat& Z){
 // [[Rcpp::export]]
 arma::cube D2C(arma::cube& D){
   const int p = D.n_rows;
-  // const int tp = D.n_cols;
   const int q = D.n_slices;
   arma::cube out(arma::size(D));
   for(int j = 0; j < q; j++){
     arma::mat Dq = arma::exp(D.slice(j));
-    // arma::mat tmp(p,tp);
     for(int i = 0; i < p; i++){
       arma::rowvec Dqi = Dq.row(i);
       double denp = arma::accu(Dqi);
       arma::rowvec nump = arma::cumsum(Dqi)/denp;
-      // tmp.row(i) = nump;
       out.slice(j).row(i) = nump;
     }
-    // out.slice(j) = tmp;
   }
   return(out);
 }
@@ -70,6 +66,57 @@ arma::vec ProxD(arma::vec& y){
     out2(i) = (y(i) + lambda > 0) ? (y(i) + lambda) : 0 ;
   }
   return(out2);
+}
+
+Rcpp::List QP_Rcpp(Rcpp::NumericMatrix& Dmat,
+                   Rcpp::NumericVector& dvec,
+                   Rcpp::NumericMatrix& Amat,
+                   Rcpp::NumericVector& bvec,
+                   int meq = 0L,
+                   bool factor = false) {
+
+  Rcpp::Environment quadprogR = Rcpp::Environment::namespace_env("quadprog");
+  Rcpp::Function solveQP = quadprogR["solve.QP"];
+  Rcpp::List out = solveQP(Rcpp::_["Dmat"] = Dmat,
+                           Rcpp::_["dvec"] = dvec,
+                           Rcpp::_["Amat"] = Amat,
+                           Rcpp::_["bvec"] = bvec,
+                           Rcpp::_["meq"] = meq,
+                           Rcpp::_["factorized"] = factor);
+
+  return out;
+}
+
+arma::vec QP_Arma(arma::mat& Dmat,
+                  arma::vec& dvec,
+                  arma::mat& Amat,
+                  arma::vec& bvec,
+                  const int meq = 0L,
+                  bool factor = false) {
+
+  int n = dvec.n_elem;
+  int m = bvec.n_elem;
+  Rcpp::NumericMatrix DmatT = Rcpp::NumericMatrix(n,n,Dmat.begin());
+  Rcpp::NumericVector dvecT = Rcpp::NumericVector(dvec.begin(),dvec.end());
+  Rcpp::NumericMatrix AmatT = Rcpp::NumericMatrix(n,m,Amat.begin());
+  Rcpp::NumericVector bvecT = Rcpp::NumericVector(bvec.begin(),bvec.end());
+  Rcpp::List list = QP_Rcpp(DmatT,dvecT,AmatT,bvecT,meq,factor);
+  Rcpp::NumericVector out0 = list["solution"];
+  arma::vec out = Rcpp::as<arma::vec>(out0);
+  return out;
+}
+
+arma::vec ProjSim(arma::vec& y){
+  const int np = y.n_elem;
+  arma::mat Dmat = arma::eye(np,np);
+  arma::rowvec vtmp(np, arma::fill::value(-1.0));
+  arma::mat AmatT = arma::join_cols(arma::eye(np,np),vtmp);
+  arma::mat Amat = AmatT.t();
+  arma::vec bvec(np + 1);
+  bvec.tail(1) = -1.0;
+  arma::vec out = QP_Arma(Dmat,y,Amat,bvec,0L,false);
+  return(out);
+  return(bvec);
 }
 
 arma::mat ProxL(arma::mat& L){
@@ -172,42 +219,64 @@ arma::mat dUA(arma::mat& U, arma::rowvec& Ak){
 
 // [[Rcpp::export]]
 Rcpp::List genpar(const int p, const int q, const int tp,
-                  const double probSparse,
+                  const double probSparse, arma::mat& Qmatrix,
                   const std::string& basis){
   arma::mat A(p,q);
   arma::cube C(p,tp,q);
   arma::cube D(p,tp,q);
   arma::vec sparse(p);
-  for(int i = 0; i < p; i++){
-    sparse(i) = R::rbinom(1,probSparse);
-    if(sparse(i) == 1){
-      arma::uvec iA = arma::regspace<uvec>(0,q-1);
-      int i2A = arma::conv_to<int>::from(Rcpp::RcppArmadillo::sample(iA,1,false,1/iA.size()));
-      A(i,i2A) = 1;
+  for(int j = 0; j < p; j++){
+    if(q > 1){
+      if(arma::accu(Qmatrix) == p*q){
+        sparse(j) = R::rbinom(1,probSparse);
+        if(sparse(j) == 1){
+          arma::uvec iA = arma::regspace<uvec>(0,q-1);
+          int i2A = arma::as_scalar(Rcpp::RcppArmadillo::sample(iA,1,false,1/iA.size()));
+          A(j,i2A) = 1;
+        } else {
+          arma::rowvec tA(q+1);
+          tA.tail(1) = 1;
+          Rcpp::NumericVector tARcpp = Rcpp::runif(q-1);
+          tA(span(1,tARcpp.size())) = arma::sort(Rcpp::as<arma::rowvec>(tARcpp));
+          tA = arma::diff(tA);
+          A.row(j) = tA;
+        }
+      } else {
+        arma::rowvec Qj = Qmatrix.row(j);
+        arma::uvec iQj = arma::find(Qj == 1);
+        if(iQj.n_elem > 1){
+          arma::rowvec tA(iQj.n_elem + 1);
+          tA.tail(1) = 1;
+          Rcpp::NumericVector tARcpp = Rcpp::runif(iQj.n_elem-1);
+          tA(span(1,tARcpp.size())) = arma::sort(Rcpp::as<arma::rowvec>(tARcpp));
+          tA = arma::diff(tA);
+          arma::rowvec tAj(q);
+          tAj(iQj) = tA;
+          A.row(j) = tAj;
+        } else {
+          A.row(j) = Qj;
+        }
+      }
     } else {
-      arma::rowvec tA(q+1);
-      tA.tail(1) = 1;
-      Rcpp::NumericVector tARcpp = Rcpp::runif(q-1);
-      tA(span(1,tARcpp.size())) = arma::sort(Rcpp::as<arma::rowvec>(tARcpp));
-      tA = arma::diff(tA);
-      A.row(i) = tA;
+      A.fill(1.0);
     }
+
     if(basis == "is"){
-      for(int j = 0; j < q; j++){
+      for(int k = 0; k < q; k++){
         arma::rowvec tC(tp+1);
         tC.tail(1) = 1;
         Rcpp::NumericVector tCRcpp = Rcpp::runif(tp-1);
         tC(span(1,tCRcpp.size())) = arma::sort(Rcpp::as<arma::rowvec>(tCRcpp));
         tC = arma::diff(tC);
-        C.slice(j).row(i) = tC;
+        C.slice(k).row(j) = tC;
       }
     } else {
-      for(int j = 0; j < q; j++){
-        Rcpp::NumericVector tDRcpp = Rcpp::rnorm(tp-1L, 0.0, 2.0); // tp + 1
-        arma::rowvec tD0 = Rcpp::as<arma::rowvec>(tDRcpp); // arma::sort()
+      for(int k = 0; k < q; k++){
+        Rcpp::NumericVector tDRcpp = Rcpp::rnorm(tp-1L, 0.0, 2.0);
+        arma::rowvec tD0 = Rcpp::as<arma::rowvec>(tDRcpp);
         arma::rowvec tD1(tp);
         tD1(arma::span(0,tp-2L)) = tD0;
-        D.slice(j).row(i) = tD1;
+        D.slice(k).row(j) = tD1;
       }
     }
   }
@@ -218,7 +287,7 @@ Rcpp::List genpar(const int p, const int q, const int tp,
 }
 
 // [[Rcpp::export]]
-arma::mat genpar_aCDM(arma::mat& Qmatrix, const double maxG0){
+arma::mat genpar_aCDM(arma::mat& Qmatrix, const double maxG0, const double maxSl){
   const int p = Qmatrix.n_rows;
   const int q = Qmatrix.n_cols;
   arma::mat G(p,q+1);
@@ -227,23 +296,24 @@ arma::mat genpar_aCDM(arma::mat& Qmatrix, const double maxG0){
     arma::uvec iQj = arma::find(Qj == 1) + 1;
     arma::uvec iGj(iQj.n_elem + 1);
     iGj.subvec(1, iQj.n_elem) = iQj;
-    double tmpb0 = R::runif(0.0,maxG0);
+    double tmpGuess = R::runif(0.0,maxG0);
+    double tmpSlip = R::runif(0.0,maxSl);
     if(iQj.n_elem > 1){
       arma::rowvec tG(iGj.n_elem);
-      tG.tail(1) = 1.0 - tmpb0;
-      Rcpp::NumericVector tGRcpp = Rcpp::runif(iQj.n_elem-1,0.0,1.0 - tmpb0);
+      tG.tail(1) = 1.0 - tmpGuess - tmpSlip;
+      Rcpp::NumericVector tGRcpp = Rcpp::runif(iQj.n_elem-1,0.0,1.0 - tmpGuess - tmpSlip);
       tG(arma::span(1,tGRcpp.size())) = arma::sort(Rcpp::as<arma::rowvec>(tGRcpp));
       tG = arma::diff(tG);
       arma::rowvec t2G(tG.n_elem + 1);
-      t2G(0) = tmpb0;
+      t2G(0) = tmpGuess;
       t2G.subvec(1, tG.n_elem) = tG;
       arma::rowvec tGj(q+1);
       tGj(iGj) = t2G;
       G.row(j) = tGj;
     } else {
       arma::rowvec tG(iGj.n_elem);
-      tG(0) = tmpb0;
-      tG(1) = 1.0 - tmpb0;
+      tG(0) = tmpGuess;
+      tG(1) = 1.0 - tmpGuess - tmpSlip;
       arma::rowvec tGj(q+1);
       tGj(iGj) = tG;
       G.row(j) = tGj;
