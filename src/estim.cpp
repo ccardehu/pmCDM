@@ -139,6 +139,38 @@ Rcpp::List newAD_MD(Rcpp::List& d1AD,arma::mat& Aold, arma::mat& Qmatrix,
                              Rcpp::Named("D") = Dnew);
 }
 
+Rcpp::List newAD_MDp(Rcpp::List& d1AD,arma::mat& Aold, arma::mat& Qmatrix,
+                     arma::cube& Dold, double& ssA, double& ssC){
+   arma::vec d1ad = d1AD["gs"];
+   arma::umat iA = d1AD["iA"];
+   arma::ucube iD = d1AD["iD"];
+   arma::mat Anew(arma::size(Aold));
+   arma::cube Dnew(arma::size(Dold));
+   const int p = Aold.n_rows;
+   const int q = Dold.n_slices;
+   for(int i = 0; i < p; i ++){
+      if(q > 1){
+         arma::uvec idA = iA.row(i).t();
+         arma::vec tA = (Aold.row(i).t() % arma::exp(ssA*d1ad(idA))) % Qmatrix.row(i).t();
+         const double l1A = arma::sum(arma::abs(tA));
+         Anew.row(i) = arma::clamp(tA.t() / l1A, 0.0, 1.0);
+         if(!Anew.row(i).is_finite()) Anew.row(i) = Aold.row(i);
+      } else {
+         Anew.row(i) = Aold.row(i);
+      }
+      for(int j = 0; j < q; j++){
+         arma::uvec idD = iD.slice(j).row(i).t();
+         arma::vec tD = Dold.slice(j).row(i).t() % arma::exp(ssC*d1ad(idD));
+         const double l1D = arma::sum(arma::abs(tD));
+         Dnew.slice(j).row(i) = arma::clamp(tD.t() / l1D, 0.0, 1.0);
+         if(!Dnew.slice(j).row(i).is_finite()) Dnew.slice(j).row(i) = Dold.slice(j).row(i);
+      }
+   }
+   return Rcpp::List::create(Rcpp::Named("A") = Anew,
+                             Rcpp::Named("D") = Dnew);
+}
+
+
 Rcpp::List newAD_MD_hess(Rcpp::List& d1AD, arma::mat& Aold, arma::mat& Qmatrix,
                          arma::cube& Dold, double& ssA, double& ssC){ // , arma::vec& d2adV
    arma::vec d1ad = d1AD["gs"];

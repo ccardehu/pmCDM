@@ -168,6 +168,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// D2Cp
+arma::cube D2Cp(arma::cube& D);
+RcppExport SEXP _pmCDM_D2Cp(SEXP DSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::cube& >::type D(DSEXP);
+    rcpp_result_gen = Rcpp::wrap(D2Cp(D));
+    return rcpp_result_gen;
+END_RCPP
+}
 // genpar
 Rcpp::List genpar(const int p, const int q, const int tp, const double probSparse, arma::mat& Qmatrix, const std::string& basis);
 RcppExport SEXP _pmCDM_genpar(SEXP pSEXP, SEXP qSEXP, SEXP tpSEXP, SEXP probSparseSEXP, SEXP QmatrixSEXP, SEXP basisSEXP) {
@@ -208,6 +219,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_pmCDM_apmCDM_fit_rcpp", (DL_FUNC) &_pmCDM_apmCDM_fit_rcpp, 8},
     {"_pmCDM_apmCDM_cv_rcpp", (DL_FUNC) &_pmCDM_apmCDM_cv_rcpp, 9},
     {"_pmCDM_D2C", (DL_FUNC) &_pmCDM_D2C, 1},
+    {"_pmCDM_D2Cp", (DL_FUNC) &_pmCDM_D2Cp, 1},
     {"_pmCDM_genpar", (DL_FUNC) &_pmCDM_genpar, 6},
     {"_pmCDM_genpar_aCDM", (DL_FUNC) &_pmCDM_genpar_aCDM, 3},
     {NULL, NULL, 0}

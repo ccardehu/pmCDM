@@ -37,6 +37,10 @@ D2C <- function(D) {
     .Call(`_pmCDM_D2C`, D)
 }
 
+D2Cp <- function(D) {
+    .Call(`_pmCDM_D2Cp`, D)
+}
+
 genpar <- function(p, q, tp, probSparse, Qmatrix, basis) {
     .Call(`_pmCDM_genpar`, p, q, tp, probSparse, Qmatrix, basis)
 }

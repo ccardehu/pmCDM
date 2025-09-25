@@ -70,7 +70,7 @@ gapmCDM <- function(data,q,control = list(), start.par = NULL, ...){
   }
 
   if(!is.null(control$seed)) set.seed(control$seed)
-  out <- gapmCDM_fit_rcpp(Y = data[],A = pp$A[,,drop = F],C = pp$C[],D = pp$D[],mu = pp$mu[],R = pp$R[], Z = zn[,,drop = F], control = control)
+  out <- gapmCDM_fit_rcpp(Y = data[],A = pp$A[],C = pp$C[],D = pp$D[],mu = pp$mu[],R = pp$R[], Z = zn[], control = control)
   colnames(out$PI) <- rownames(out$A) <- rownames(out$C) <- colnames(data)
   colnames(out$Z) <- colnames(out$A) <- colnames(out$R) <- rownames(out$R) <- names(out$mu) <- paste0("Z",1:q)
   colnames(out$U) <- paste0("U",1:q)

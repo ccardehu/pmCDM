@@ -37,6 +37,19 @@ arma::cube D2C(arma::cube& D){
   return(out);
 }
 
+// [[Rcpp::export]]
+arma::cube D2Cp(arma::cube& D){
+  const int p = D.n_rows;
+  const int q = D.n_slices;
+  arma::cube out(arma::size(D));
+  for(int j = 0; j < q; j++){
+    for(int i = 0; i < p; i++){
+      out.slice(j).row(i) = arma::cumsum(D.slice(j).row(i));
+    }
+  }
+  return(out);
+}
+
 arma::mat cumsumMat(arma::vec& expd){
   const int tp = expd.n_elem;
   arma::vec outv(tp);
@@ -272,15 +285,22 @@ Rcpp::List genpar(const int p, const int q, const int tp,
       }
     } else {
       for(int k = 0; k < q; k++){
-        Rcpp::NumericVector tDRcpp = Rcpp::rnorm(tp-1L, 0.0, 2.0);
-        arma::rowvec tD0 = Rcpp::as<arma::rowvec>(tDRcpp);
-        arma::rowvec tD1(tp);
-        tD1(arma::span(0,tp-2L)) = tD0;
-        D.slice(k).row(j) = tD1;
+        arma::rowvec tD(tp+1);
+        tD.tail(1) = 1;
+        Rcpp::NumericVector tDRcpp = Rcpp::runif(tp-1);
+        tD(span(1,tDRcpp.size())) = arma::sort(Rcpp::as<arma::rowvec>(tDRcpp));
+        tD = arma::diff(tD);
+        D.slice(k).row(j) = tD;
+        // Rcpp::NumericVector tDRcpp = Rcpp::rnorm(tp-1L, 0.0, 2.0); //THIS START
+        // arma::rowvec tD0 = Rcpp::as<arma::rowvec>(tDRcpp);
+        // arma::rowvec tD1(tp);
+        // tD1(arma::span(0,tp-2L)) = tD0;
+        // D.slice(k).row(j) = tD1; // THIS END
       }
     }
   }
-  if(basis != "is") C = D2C(D);
+  // if(basis != "is") C = D2C(D);
+  if(basis != "is") C = D2Cp(D);
   return Rcpp::List::create(Rcpp::Named("A") = A,
                             Rcpp::Named("C") = C,
                             Rcpp::Named("D") = D);
@@ -505,7 +525,7 @@ Rcpp::List d1AC(arma::mat& Y, arma::mat& PI, arma::mat& ism,
 //                             Rcpp::Named("iC") = iC);
 // }
 
-Rcpp::List d1CdD(arma::vec& d){
+arma::mat d1CdD(arma::vec& d){
   const int tp = d.n_elem;
   arma::vec expd = arma::exp(d);
   arma::mat d1(tp,tp);
@@ -524,7 +544,15 @@ Rcpp::List d1CdD(arma::vec& d){
   d1(iUm) = DmN(iUm);
   d1(iLm) = -Nm(iLm);
 
-  return Rcpp::List::create(Rcpp::Named("d1CdD") = d1/std::pow(D,2));
+  return(d1/std::pow(D,2));
+}
+
+arma::mat d1CdDp(arma::vec& d){
+  int tp = d.n_elem;
+  arma::mat out(tp,tp);
+  arma::uvec iO = arma::trimatl_ind(arma::size(out));
+  out(iO).fill(1.0);
+  return(out);
 }
 
 Rcpp::List dCdD(arma::vec& d){
@@ -596,10 +624,10 @@ Rcpp::List d1AD(arma::mat& Y, arma::mat& PI, arma::mat& ism,
       arma::uvec idC = iC.slice(j).row(i).t();
       out(idA) = arma::as_scalar(YmPIcol.elem(noNA).t() * (ism(noNA,jcols)*(C.slice(j).row(i)).t()));
       arma::vec Dij = D.slice(j).row(i).t();
-      Rcpp::List dD = d1CdD(Dij);
-      arma::mat dD1 = dD["d1CdD"];
+      // arma::mat dD1 = d1CdD(Dij);
+      arma::mat dD1 = d1CdDp(Dij);
       arma::vec V1 = ism(noNA,jcols).t() * YmPIcol.elem(noNA);
-      arma::vec V2 = (dD1 * V1);
+      arma::vec V2 = (dD1.t() * V1);
       out(idC) = A(i,j) * V2 ;
     }
   }

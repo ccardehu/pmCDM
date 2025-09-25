@@ -5,6 +5,8 @@ arma::mat Z2U(arma::mat& Z);
 
 arma::cube D2C(arma::cube& D);
 
+arma::cube D2Cp(arma::cube& D);
+
 arma::mat cumsumMat(arma::vec& expd);
 
 arma::vec ProxD(arma::vec& y);
@@ -62,6 +64,8 @@ Rcpp::List d1AC(arma::mat& Y, arma::mat& PI, arma::mat& ism,
                 arma::mat& A, arma::cube& C);
 
 arma::mat d1CdD(arma::vec& d);
+
+arma::mat d1CdDp(arma::vec& d);
 
 Rcpp::List dCdD(arma::vec& d);
 

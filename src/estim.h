@@ -13,6 +13,9 @@ Rcpp::List newAC_MD(Rcpp::List& d1AC, arma::mat& Aold, arma::mat& Qmatrix,
 Rcpp::List newAD_MD(Rcpp::List& d1AD, arma::mat& Aold, arma::mat& Qmatrix,
                     arma::cube& Dold, double& ssA, double& ssC);
 
+Rcpp::List newAD_MDp(Rcpp::List& d1AD, arma::mat& Aold, arma::mat& Qmatrix,
+                    arma::cube& Dold, double& ssA, double& ssC);
+
 Rcpp::List newAD_MD_hess(Rcpp::List& d1AD,arma::mat& Aold, arma::mat& Qmatrix,
                          arma::cube& Dold, double& ssA, double& ssC);
 

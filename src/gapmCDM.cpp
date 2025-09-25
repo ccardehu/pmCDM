@@ -79,12 +79,13 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
   }
 
   arma::mat L = arma::chol(R,"lower");
+  arma::mat Ln(L);
   arma::mat PI(arma::size(Y));
-  arma::mat Zout(arma::size(Z));
+  arma::mat Zout(arma::size(Z)), Zn(Z);
   arma::mat Aout(arma::size(A)), An(A);
-  arma::cube Cout(arma::size(C)), Cn(arma::size(C));
-  arma::cube Dout(arma::size(D)), Dn(arma::size(D));
-  arma::vec Mout(arma::size(mu)), Mn(arma::size(mu));
+  arma::cube Cout(arma::size(C)), Cn(C);
+  arma::cube Dout(arma::size(D)), Dn(D);
+  arma::vec Mout(arma::size(mu)), Mn(mu);
   arma::mat Rout(arma::size(R));
   arma::mat spM(n,q*np), spD(n,q*np);
   arma::cube spObj(n,q*np,2);
@@ -151,33 +152,36 @@ Rcpp::List gapmCDM_fit_rcpp(arma::mat& Y, arma::mat& A, arma::cube& C, arma::cub
       spD = spObj.slice(1);
       PI = prob(A,C,spM);
       Rcpp::List gad = d1AD(Y,PI,spM,A,D);
-      Rcpp::List ADn ;
-      if(algo == "GD"){
-        ADn = newAD_MD(gad,A,Q,D,ssA,ssC);
-      } else if(algo == "ADAM"){
-        ADn = newAD_MD_adam(gad,A,Q,D,ssA,ssC,iter,mt,vt,control);
-      } else if(algo == "mixed"){
-        if(ii <= tunelim + 0.5*iterlim){
-          ADn = newAD_MD(gad,A,Q,D,ssA,ssC);
-        } else {
-          ADn = newAD_MD_adam(gad,A,Q,D,ssA,ssC,iter,mt,vt,control);
-        }
-      }
+      Rcpp::List ADn = newAD_MDp(gad,A,Q,D,ssA,ssC);
+      // Rcpp::List ADn ; // THIS START
+      // if(algo == "GD"){
+      //   ADn = newAD_MD(gad,A,Q,D,ssA,ssC);
+      // } else if(algo == "ADAM"){
+      //   ADn = newAD_MD_adam(gad,A,Q,D,ssA,ssC,iter,mt,vt,control);
+      // } else if(algo == "mixed"){
+      //   if(ii <= tunelim + 0.5*iterlim){
+      //     ADn = newAD_MD(gad,A,Q,D,ssA,ssC);
+      //   } else {
+      //     ADn = newAD_MD_adam(gad,A,Q,D,ssA,ssC,iter,mt,vt,control);
+      //   }
+      // } // THIS END
       An = Rcpp::as<arma::mat>(ADn["A"]);
       Dn = Rcpp::as<arma::cube>(ADn["D"]);
-      Cn = D2C(Dn);
+      Cn = D2Cp(Dn);
+      // Dn = Rcpp::as<arma::cube>(ADn["D"]); // THIS START
+      // Cn = D2C(Dn); // THIS END
     }
     // arma::vec Mn = newM(mu,R,Z,ssAC);
-    arma::mat Ln(arma::size(L));
-    if(q > 1){
-      Ln = newL(mu,L,Z,ssR,corFLAG);
-    } else {
-      Ln = L;
-    }
-    arma::mat Zn(arma::size(Z));
+    // arma::mat Ln(L);
+    // arma::mat Zn(arma::size(Z));
     if(ii <= tunelim){
       Zn = Z;
     } else {
+      if(q > 1){
+        Ln = newL(mu,L,Z,ssR,corFLAG);
+      } else {
+        Ln = L;
+      }
       if(sampler == "ULA"){
         Zn = newZ_ULA(Y,PI,Z,A,C,mu,R,spD,ssZ);
       } else if(sampler == "MALA"){
@@ -440,8 +444,9 @@ Rcpp::List apmCDM_fit_rcpp(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma:
   const int q = R.n_cols;
 
   arma::mat L = arma::chol(R,"lower");
+  arma::mat Ln(L);
   arma::mat PI(arma::size(Y));
-  arma::mat Zout(arma::size(Z));
+  arma::mat Zout(arma::size(Z)), Zn(Z);
   arma::mat Gout(arma::size(G)), Gn(arma::size(G));
   arma::vec Mout(arma::size(mu)), Mn(arma::size(mu));
   arma::mat Rout(arma::size(R));
@@ -530,12 +535,14 @@ Rcpp::List apmCDM_fit_rcpp(arma::mat& Y, arma::mat& G, arma::mat& Qmatrix, arma:
     } else {
       Gn = newG_MD(dG,G,ssG);
     }
-    arma::vec Mn = newM(mu,R,Z,ssM);
-    arma::mat Ln = newL(mu,L,Z,ssR,corFLAG);
-    arma::mat Zn(arma::size(Z));
+    // arma::vec Mn(q);
+    // arma::mat Ln(L);
+    // arma::mat Zn(arma::size(Z));
     if(ii <= tunelim){
       Zn = Z;
     } else {
+      Mn = newM(mu,R,Z,ssM);
+      Ln = newL(mu,L,Z,ssR,corFLAG);
       if(sampler == "ULA"){
         Zn = newZ_ULA_aCDM(Y,PI,Z,Qmatrix,Apat,G,mu,R,ssZ);
       } else if(sampler == "MALA"){

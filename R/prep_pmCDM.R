@@ -73,11 +73,13 @@ pr_param_gaCDM <- function(p,q,tp,sim = F,control){
   if(!sim){
       As <- matrix(1/q,p,q) * control$Qmatrix
       As <- t(apply(As,1,function(x){x * 1/sum(x)}))
-      Ds <- array(1, dim = c(p,tp,q)) # stats::rnorm(p*tp*q)
+      # Ds <- array(1, dim = c(p,tp,q))
+      Ds <- array(1/tp, dim = c(p,tp,q))
       if(control$basis == "is"){
         Cs <- array(1/tp,dim = c(p,tp,q))
       } else {
-        Cs <- D2C(Ds)
+        # Cs <- D2C(Ds)
+        Cs <- D2Cp(Ds)
       }
       Rs <- diag(q)
       mu <- rep(0,q)
